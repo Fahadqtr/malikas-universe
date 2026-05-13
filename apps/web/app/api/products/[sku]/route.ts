@@ -20,6 +20,10 @@ export const PUT = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
   return ok(updated);
 });
 
+// PATCH is identical to PUT — service uses productUpdateSchema.partial()
+// so both treat the body as a partial update.
+export const PATCH = PUT;
+
 export const DELETE = withErrorHandling(async (_req: NextRequest, ctx: Ctx) => {
   const actor = await getActor();
   const { products } = getServices(actor);

@@ -110,18 +110,25 @@ SELECT id, email, 'Fahad', 'owner', true
               <div className="text-xs text-muted-foreground mt-0.5">Upload Excel from Snoonu / Shopify / Talabat / Rafeeq</div>
             </a>
             <a
-              href="/export"
+              href="/export-center"
               className="block p-4 border border-border rounded-md hover:bg-muted/50 transition-colors"
             >
-              <div className="font-medium">Export →</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Download clean CSV for each platform</div>
+              <div className="font-medium">Export Center →</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Snoonu · Talabat · Rafeeq · Shopify CSV/XLSX</div>
             </a>
             <a
               href="/bulk-ai"
-              className="block p-4 border border-border rounded-md hover:bg-muted/50 transition-colors col-span-2"
+              className="block p-4 border border-border rounded-md hover:bg-muted/50 transition-colors"
             >
               <div className="font-medium">Bulk AI Upload →</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Drop 100+ product images — AI auto-creates bilingual drafts (Phase 7)</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Drop 100+ images, AI auto-drafts</div>
+            </a>
+            <a
+              href="/bulk-ai/review"
+              className="block p-4 border border-border rounded-md hover:bg-muted/50 transition-colors"
+            >
+              <div className="font-medium">Review Dashboard →</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Approve, edit, reject AI drafts in bulk</div>
             </a>
           </div>
         </section>

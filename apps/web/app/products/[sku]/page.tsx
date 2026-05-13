@@ -9,6 +9,7 @@ import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import { Button, Card, ProductStatusBadge } from '@/components/ui';
 import { ProductEditForm } from './edit-form';
 import { ImageUploader } from './image-uploader';
+import { ReadinessPanel } from './readiness-panel';
 
 export const dynamic = 'force-dynamic';
 
@@ -103,6 +104,31 @@ export default async function EditProductPage({ params }: { params: { sku: strin
                   ))}
                 </ul>
               )}
+            </Card>
+
+            <Card>
+              <h2 className="text-lg font-medium mb-3">Marketplace Readiness</h2>
+              <ReadinessPanel
+                product={{
+                  master_sku: product.master_sku,
+                  product_name_en: product.product_name_en,
+                  product_name_ar: product.product_name_ar,
+                  brand_id: product.brand_id,
+                  category_id: product.category_id,
+                  subcategory_id: product.subcategory_id,
+                  barcode: product.barcode,
+                  price: typeof product.price === 'number' ? product.price : Number(product.price ?? 0),
+                  stock_quantity: product.stock_quantity,
+                  product_status: product.product_status,
+                  image_url: product.image_url,
+                  description_en: product.description_en,
+                  description_ar: product.description_ar,
+                  usage_en: product.usage_en,
+                  usage_ar: product.usage_ar,
+                  keywords_en: product.keywords_en,
+                  keywords_ar: product.keywords_ar,
+                }}
+              />
             </Card>
 
             <Card>

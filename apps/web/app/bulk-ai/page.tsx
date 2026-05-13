@@ -26,16 +26,24 @@ export default async function BulkAIPage() {
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto p-6 md:p-8 space-y-6">
-        <header>
-          <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
-            ← Home
+        <header className="flex items-start justify-between gap-4">
+          <div>
+            <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
+              ← Home
+            </Link>
+            <h1 className="text-3xl font-semibold tracking-tight mt-1">Bulk AI Upload</h1>
+            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              Drop product images here — 100+ at a time. Each image is uploaded, then Claude vision auto-creates
+              a <strong className="text-foreground">draft product</strong> in bilingual Malika Style. Confidence badge
+              tells you which drafts need review. Nothing publishes automatically — every draft waits for you.
+            </p>
+          </div>
+          <Link
+            href="/bulk-ai/review"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:opacity-90 whitespace-nowrap"
+          >
+            Review Dashboard →
           </Link>
-          <h1 className="text-3xl font-semibold tracking-tight mt-1">Bulk AI Upload</h1>
-          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Drop product images here — 100+ at a time. Each image is uploaded, then Claude vision auto-creates
-            a <strong className="text-foreground">draft product</strong> in bilingual Malika Style. Confidence badge
-            tells you which drafts need review. Nothing publishes automatically — every draft waits for you.
-          </p>
         </header>
 
         <BulkAIUploader />

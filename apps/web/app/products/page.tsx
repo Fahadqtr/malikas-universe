@@ -5,7 +5,9 @@
 import Link from 'next/link';
 import { getActor } from '@/lib/actor';
 import { getServices } from '@/lib/services';
-import { Button, Card, CardHeader, CardTitle, ProductStatusBadge, StockStatusBadge } from '@/components/ui';
+import { Button, Card, ProductStatusBadge, StockStatusBadge } from '@/components/ui';
+import { ReadinessBadge } from '@/components/readiness-badge';
+import { checkReadiness, type ProductForReadiness } from '@/lib/readiness';
 
 export const dynamic = 'force-dynamic';
 
@@ -121,11 +123,17 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
                     <th className="text-left font-medium px-4 py-3">Price</th>
                     <th className="text-left font-medium px-4 py-3">Stock</th>
                     <th className="text-left font-medium px-4 py-3">Status</th>
+                    <th className="text-left font-medium px-4 py-3">Readiness</th>
                     <th className="text-left font-medium px-4 py-3">Updated</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {list.items.map((p) => (
+                  {list.items.map((p) => {
+                    // Approximate readiness from list-view fields only.
+                    // Some warnings (descriptions/keywords) may be missing here —
+                    // exact score is computed on the edit page.
+                    const r = checkReadiness(p as ProductForReadiness, 'shopify');
+                    return (
                     <tr key={p.master_sku} className="border-b border-border hover:bg-muted/30">
                       <td className="px-4 py-3 font-mono text-xs">
                         <Link href={`/products/${p.master_sku}`} className="text-primary hover:underline">
@@ -153,11 +161,14 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
                       <td className="px-4 py-3">
                         <ProductStatusBadge status={p.product_status} />
                       </td>
+                      <td className="px-4 py-3">
+                        <ReadinessBadge score={r.score} ready={r.ready} compact target="shopify" />
+                      </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {new Date(p.updated_at).toLocaleDateString()}
                       </td>
                     </tr>
-                  ))}
+                  );})}
                 </tbody>
               </table>
             </div>
