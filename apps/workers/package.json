@@ -1,0 +1,36 @@
+{
+  "name": "@malikas/workers",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist .turbo node_modules"
+  },
+  "dependencies": {
+    "@malikas/db": "workspace:*",
+    "@malikas/shared": "workspace:*",
+    "@anthropic-ai/sdk": "^0.27.0",
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "bullmq": "^5.10.0",
+    "ioredis": "^5.4.1",
+    "sharp": "^0.33.4",
+    "zod": "^3.23.8",
+    "pino": "^9.3.0",
+    "pino-pretty": "^11.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0",
+    "eslint": "^8.57.0"
+  }
+}

@@ -1,0 +1,17 @@
+# Local-only services for development.
+# Production redis + n8n live on Hetzner VPS (see n8n/docker-compose.yml).
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: malikas-redis-dev
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+volumes:
+  redis-data:

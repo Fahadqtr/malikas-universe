@@ -1,0 +1,28 @@
+name: Deploy Workers (Hetzner VPS)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/workers/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/malikas-universe
+            git pull origin main
+            pnpm install --frozen-lockfile
+            pnpm --filter @malikas/workers build
+            pm2 restart malikas-workers
