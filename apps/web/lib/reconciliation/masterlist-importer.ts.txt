@@ -1,0 +1,208 @@
+/**
+ * Masterlist Importer — Phase 13G.
+ * Parses the Malikas Universe Masterlist xlsx into canonical MasterProduct rows.
+ * READ-ONLY parsing; caller decides what to write.
+ */
+
+import * as XLSX from 'xlsx';
+import { normalizeProductName } from './text-normalizer';
+
+// ─── Column aliases — case-insensitive ───────────────────────────────────
+const ALIASES: Record<string, string[]> = {
+  masterlist_id:   ['id', 'product_id'],
+  master_sku:      ['master_sku', 'sku'],
+  snoonu_spi:      ['snoonu_spi', 'spi', 'snoonu_product_id'],
+  global_id:       ['global_id'],
+  barcode:         ['barcode', 'ean', 'upc'],
+  name_en:         ['name_en', 'product_name_en', 'product name (en)'],
+  name_ar:         ['name_ar', 'product_name_ar', 'product name (ar)'],
+  description_en:  ['description_en', 'product_description_en', 'description (en)'],
+  description_ar:  ['description_ar', 'product_description_ar', 'description (ar)'],
+  brand:           ['brand'],
+  master_category: ['master_category', 'main_category', 'malika_category'],
+  snoonu_category: ['snoonu_category', 'category', 'catalog'],
+  sub_category:    ['sub_category', 'subcategory'],
+  product_type:    ['product_type', 'type'],
+  keywords_en:     ['keywords_en', 'keywords en', 'tags_en'],
+  keywords_ar:     ['keywords_ar', 'keywords ar', 'tags_ar'],
+  price:           ['price', 'selling_price'],
+  discount_price:  ['discount_price', 'discount', 'sale_price'],
+  cost:            ['cost', 'cost_price'],
+  stock_quantity:  ['stock_quantity', 'stock', 'qty', 'quantity'],
+  stock_status:    ['stock_status'],
+  is_featured:     ['is_featured', 'featured'],
+  is_promoted:     ['is_promoted', 'promoted'],
+  has_buy1get1:    ['has_buy1get1', 'buy_one_get_one'],
+  product_order_limit: ['product_order_limit', 'order_limit'],
+  preparation_time:    ['preparation_time', 'prep_time'],
+  approval_status:     ['approval', 'approval_status'],
+  default_sort_order:  ['default_sort_order'],
+  featured_sort_order: ['featured_sort_order'],
+  shopify_status:  ['shopify_status'],
+  snoonu_status:   ['snoonu_status', 'platform_status'],
+  talabat_status:  ['talabat_status'],
+  rafeeq_status:   ['rafeeq_status'],
+  image_url:       ['image_url', 'image', 'photo_url', 'picture_url'],
+  image_filename:  ['image_filename', 'image_file'],
+};
+
+const MAPPED_COLUMN_SET = new Set(Object.values(ALIASES).flat().map((s) => s.toLowerCase()));
+
+export type MasterProduct = {
+  masterlist_id: string;
+  master_sku: string | null;
+  snoonu_spi: string | null;
+  global_id: string | null;
+  barcode: string | null;
+  name_en: string;
+  name_ar: string | null;
+  description_en: string | null;
+  description_ar: string | null;
+  normalized_name: string | null;
+  brand: string | null;
+  master_category: string | null;
+  snoonu_category: string | null;
+  sub_category: string | null;
+  product_type: string | null;
+  keywords_en: string[];
+  keywords_ar: string[];
+  price: number | null;
+  discount_price: number | null;
+  cost: number | null;
+  stock_quantity: number | null;
+  stock_status: string | null;
+  is_featured: boolean;
+  is_promoted: boolean;
+  has_buy1get1: boolean;
+  product_order_limit: number | null;
+  preparation_time: number | null;
+  approval_status: string | null;
+  default_sort_order: number | null;
+  featured_sort_order: number | null;
+  shopify_status: string | null;
+  snoonu_status: string | null;
+  talabat_status: string | null;
+  rafeeq_status: string | null;
+  image_url: string | null;
+  image_filename: string | null;
+  masterlist_raw: Record<string, unknown>;
+};
+
+export type ParsedMasterlist = {
+  source_filename: string;
+  sheet_name: string;
+  total_rows: number;
+  rows: MasterProduct[];
+  unmapped_columns: string[];
+  warnings: string[];
+};
+
+function findCol(headers: string[], aliases: string[]): string | null {
+  const lower = headers.map((h) => h.toLowerCase().trim());
+  for (const a of aliases) {
+    const idx = lower.indexOf(a.toLowerCase());
+    if (idx >= 0) return headers[idx];
+  }
+  return null;
+}
+
+function toString(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  return s === '' ? null : s;
+}
+function toNumber(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const s = String(v).trim();
+  if (!s) return null;
+  const n = Number(s.replace(/[^\d.\-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+function toInt(v: unknown): number | null {
+  const n = toNumber(v); return n === null ? null : Math.round(n);
+}
+function toBool(v: unknown): boolean {
+  if (v === null || v === undefined) return false;
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'number') return v !== 0;
+  const s = String(v).trim().toLowerCase();
+  return ['true','yes','y','1','active'].includes(s);
+}
+function toArr(v: unknown): string[] {
+  const s = toString(v); if (!s) return [];
+  return s.split(/[,;\|]/).map((x) => x.trim()).filter(Boolean);
+}
+
+export function parseMasterlistBuffer(buf: Buffer, source_filename: string): ParsedMasterlist {
+  const wb = XLSX.read(buf, { type: 'buffer' });
+  // Prefer NonFoodProducts sheet if present
+  const preferred = wb.SheetNames.find((s) => /nonfood|non.?food|products/i.test(s)) ?? wb.SheetNames[0];
+  const ws = wb.Sheets[preferred];
+  const records = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null, raw: true });
+
+  if (records.length === 0) {
+    return { source_filename, sheet_name: preferred, total_rows: 0, rows: [], unmapped_columns: [], warnings: ['Sheet has no data rows'] };
+  }
+
+  const headers = Object.keys(records[0]);
+  const colMap: Record<string, string | null> = {};
+  for (const [k, aliases] of Object.entries(ALIASES)) {
+    colMap[k] = findCol(headers, aliases);
+  }
+  const unmapped = headers.filter((h) => !MAPPED_COLUMN_SET.has(h.toLowerCase()));
+  const warnings: string[] = [];
+  if (!colMap.masterlist_id) warnings.push('Required column "id" not found');
+  if (!colMap.name_en) warnings.push('Required column "name_en" not found');
+
+  const rows: MasterProduct[] = records.map((r, idx) => {
+    const raw: Record<string, unknown> = {};
+    for (const h of unmapped) {
+      const v = r[h];
+      if (v !== null && v !== undefined && String(v).trim() !== '') raw[h] = v;
+    }
+    const id = colMap.masterlist_id ? toString(r[colMap.masterlist_id]) : null;
+    const name = colMap.name_en ? toString(r[colMap.name_en]) : null;
+    return {
+      masterlist_id: id ?? `ROW_${idx + 2}`,
+      master_sku: colMap.master_sku ? toString(r[colMap.master_sku]) : null,
+      snoonu_spi: colMap.snoonu_spi ? toString(r[colMap.snoonu_spi]) : null,
+      global_id:  colMap.global_id  ? toString(r[colMap.global_id])  : null,
+      barcode:    colMap.barcode    ? toString(r[colMap.barcode])    : null,
+      name_en: name ?? '(no name)',
+      name_ar: colMap.name_ar ? toString(r[colMap.name_ar]) : null,
+      description_en: colMap.description_en ? toString(r[colMap.description_en]) : null,
+      description_ar: colMap.description_ar ? toString(r[colMap.description_ar]) : null,
+      normalized_name: name ? normalizeProductName(name).normalized_name : null,
+      brand: colMap.brand ? toString(r[colMap.brand]) : null,
+      master_category: colMap.master_category ? toString(r[colMap.master_category]) : null,
+      snoonu_category: colMap.snoonu_category ? toString(r[colMap.snoonu_category]) : null,
+      sub_category: colMap.sub_category ? toString(r[colMap.sub_category]) : null,
+      product_type: colMap.product_type ? toString(r[colMap.product_type]) : null,
+      keywords_en: colMap.keywords_en ? toArr(r[colMap.keywords_en]) : [],
+      keywords_ar: colMap.keywords_ar ? toArr(r[colMap.keywords_ar]) : [],
+      price: colMap.price ? toNumber(r[colMap.price]) : null,
+      discount_price: colMap.discount_price ? toNumber(r[colMap.discount_price]) : null,
+      cost: colMap.cost ? toNumber(r[colMap.cost]) : null,
+      stock_quantity: colMap.stock_quantity ? toInt(r[colMap.stock_quantity]) : null,
+      stock_status: colMap.stock_status ? toString(r[colMap.stock_status]) : null,
+      is_featured: colMap.is_featured ? toBool(r[colMap.is_featured]) : false,
+      is_promoted: colMap.is_promoted ? toBool(r[colMap.is_promoted]) : false,
+      has_buy1get1: colMap.has_buy1get1 ? toBool(r[colMap.has_buy1get1]) : false,
+      product_order_limit: colMap.product_order_limit ? toInt(r[colMap.product_order_limit]) : null,
+      preparation_time: colMap.preparation_time ? toInt(r[colMap.preparation_time]) : null,
+      approval_status: colMap.approval_status ? toString(r[colMap.approval_status]) : null,
+      default_sort_order: colMap.default_sort_order ? toInt(r[colMap.default_sort_order]) : null,
+      featured_sort_order: colMap.featured_sort_order ? toInt(r[colMap.featured_sort_order]) : null,
+      shopify_status: colMap.shopify_status ? toString(r[colMap.shopify_status]) : null,
+      snoonu_status: colMap.snoonu_status ? toString(r[colMap.snoonu_status]) : null,
+      talabat_status: colMap.talabat_status ? toString(r[colMap.talabat_status]) : null,
+      rafeeq_status: colMap.rafeeq_status ? toString(r[colMap.rafeeq_status]) : null,
+      image_url: colMap.image_url ? toString(r[colMap.image_url]) : null,
+      image_filename: colMap.image_filename ? toString(r[colMap.image_filename]) : null,
+      masterlist_raw: raw,
+    };
+  });
+
+  return { source_filename, sheet_name: preferred, total_rows: rows.length, rows, unmapped_columns: unmapped, warnings };
+}

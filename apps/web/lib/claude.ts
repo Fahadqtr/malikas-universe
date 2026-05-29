@@ -130,3 +130,179 @@ export function estimateCostUsd(model: string, input: number, output: number): n
   const p = prices[model] ?? prices['claude-haiku-4-5-20251001']!;
   return (input * p.in + output * p.out) / 1_000_000;
 }
+
+// ─── Tool-use loop (used by the WhatsApp agent) ──────────────────────────────
+
+export type AgentTool = {
+  name: string;
+  description: string;
+  input_schema: Anthropic.Tool.InputSchema;
+};
+
+export type ToolExecutor = (
+  name: string,
+  input: Record<string, unknown>,
+) => Promise<{ output: unknown; is_error?: boolean }>;
+
+export type AgentTurn =
+  | { role: 'user'; content: string }
+  | { role: 'assistant'; content: string }
+  | { role: 'tool_use'; name: string; input: Record<string, unknown> }
+  | { role: 'tool_result'; name: string; output: unknown; is_error?: boolean };
+
+export type AgentRun = {
+  /** the final assistant message shown to the user */
+  reply: string;
+  /** every tool call the agent made, in order */
+  tool_calls: Array<{ name: string; input: Record<string, unknown>; output: unknown; is_error?: boolean }>;
+  /** trace of the full conversation, for logging */
+  trace: AgentTurn[];
+  /** total usage across all loop iterations */
+  usage: { input: number; output: number };
+  /** model name for cost calculation */
+  model: string;
+};
+
+/**
+ * Run an agentic conversation with tools.
+ *
+ *   • system     — system prompt
+ *   • messages   — conversation history (oldest → newest). Last entry is what
+ *                  we're responding to.
+ *   • tools      — declared tools the agent may call
+ *   • execute    — callback that runs a tool and returns its result
+ *   • maxTurns   — safety cap (default 6 — usually 2-3 is enough)
+ *
+ * Loop:
+ *   1. Send messages + tools to Claude
+ *   2. If response contains tool_use blocks → execute them, append results,
+ *      go back to step 1
+ *   3. If response is plain text → return it as the reply
+ *   4. If maxTurns reached → return the last text or a safe fallback
+ */
+export async function callClaudeAgent(opts: {
+  model?: keyof typeof MODELS;
+  system: string;
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  tools: AgentTool[];
+  execute: ToolExecutor;
+  maxTurns?: number;
+  maxTokens?: number;
+}): Promise<AgentRun> {
+  const client = getClient();
+  const model = MODELS[opts.model ?? 'haiku'];
+  const maxTurns = opts.maxTurns ?? 6;
+
+  // Working message buffer — we mutate this as we add tool results
+  // Cast to Anthropic's message type so we can append tool_use/tool_result blocks
+  const conversation: Anthropic.MessageParam[] = opts.messages.map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
+
+  const trace: AgentTurn[] = opts.messages.map((m) => ({
+    role: m.role === 'user' ? 'user' : 'assistant',
+    content: m.content,
+  })) as AgentTurn[];
+
+  const tool_calls: AgentRun['tool_calls'] = [];
+  let totalIn = 0;
+  let totalOut = 0;
+  let finalReply = '';
+
+  for (let turn = 0; turn < maxTurns; turn++) {
+    const response = await client.messages.create({
+      model,
+      max_tokens: opts.maxTokens ?? 1500,
+      system: opts.system,
+      tools: opts.tools as Anthropic.Tool[],
+      messages: conversation,
+    });
+
+    totalIn += response.usage.input_tokens;
+    totalOut += response.usage.output_tokens;
+
+    // Collect any text response
+    const textBlocks = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text');
+    const toolUses = response.content.filter(
+      (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
+    );
+
+    // Add the assistant's full response (text + tool_use blocks) to history
+    // — Anthropic requires the full content blocks, not just text
+    conversation.push({
+      role: 'assistant',
+      content: response.content,
+    });
+
+    // If no tools called, we're done — return text
+    if (toolUses.length === 0) {
+      finalReply = textBlocks.map((b) => b.text).join('\n').trim();
+      trace.push({ role: 'assistant', content: finalReply });
+      break;
+    }
+
+    // Execute each tool sequentially (could parallelize but adds complexity)
+    const toolResultBlocks: Anthropic.ToolResultBlockParam[] = [];
+    for (const t of toolUses) {
+      trace.push({ role: 'tool_use', name: t.name, input: t.input as Record<string, unknown> });
+      let result: { output: unknown; is_error?: boolean };
+      try {
+        result = await opts.execute(t.name, t.input as Record<string, unknown>);
+      } catch (e) {
+        result = {
+          output: `Tool ${t.name} threw: ${e instanceof Error ? e.message : 'unknown'}`,
+          is_error: true,
+        };
+      }
+      tool_calls.push({
+        name: t.name,
+        input: t.input as Record<string, unknown>,
+        output: result.output,
+        is_error: result.is_error,
+      });
+      trace.push({
+        role: 'tool_result',
+        name: t.name,
+        output: result.output,
+        is_error: result.is_error,
+      });
+      toolResultBlocks.push({
+        type: 'tool_result',
+        tool_use_id: t.id,
+        content:
+          typeof result.output === 'string'
+            ? result.output
+            : JSON.stringify(result.output, null, 2),
+        is_error: result.is_error,
+      });
+    }
+
+    // Feed tool results back as the next user message
+    conversation.push({ role: 'user', content: toolResultBlocks });
+
+    // If response.stop_reason === 'end_turn' the model isn't going to do
+    // more — break to be safe
+    if (response.stop_reason === 'end_turn') {
+      finalReply = textBlocks.map((b) => b.text).join('\n').trim();
+      if (finalReply) trace.push({ role: 'assistant', content: finalReply });
+      break;
+    }
+  }
+
+  // Fallback if we ran out of turns without a clean text reply
+  if (!finalReply) {
+    finalReply =
+      'عذراً، حدث خطأ تقني. سيتواصل معك أحد فريقنا قريباً.\n' +
+      "Sorry — a tech issue. A team member will reach out.";
+    trace.push({ role: 'assistant', content: finalReply });
+  }
+
+  return {
+    reply: finalReply,
+    tool_calls,
+    trace,
+    usage: { input: totalIn, output: totalOut },
+    model,
+  };
+}

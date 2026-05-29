@@ -63,3 +63,11 @@ uploads/
 
 # Worker temp data
 .bullmq-data/
+
+# Local dev artifacts (tunnel logs, output captures)
+tunnel-log.txt
+tunnel-url.txt
+ngrok-log.txt
+ngrok-url.txt
+dev-log.txt
+webhook-test-output.txt

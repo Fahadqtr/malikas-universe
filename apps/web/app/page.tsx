@@ -110,6 +110,34 @@ SELECT id, email, 'Fahad', 'owner', true
               <div className="text-xs text-muted-foreground mt-0.5">Upload Excel from Snoonu / Shopify / Talabat / Rafeeq</div>
             </a>
             <a
+              href="/snoonu-import"
+              className="block p-4 border border-primary/40 rounded-md hover:bg-primary/5 transition-colors"
+            >
+              <div className="font-medium">Snoonu Live Import →</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Paste URLs, auto-pull images + variants, review, apply</div>
+            </a>
+            <a
+              href="/reconciliation"
+              className="block p-4 border border-amber-300 bg-amber-50 rounded-md hover:bg-amber-100 transition-colors"
+            >
+              <div className="font-medium">Marketplace Reconciliation →</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Snoonu is the truth — compare against Talabat / Rafeeq / Shopify</div>
+            </a>
+            <a
+              href="/snoonu-catalog-mapper"
+              className="block p-4 border border-blue-300 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
+            >
+              <div className="font-medium">Snoonu Catalog Mapper →</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Capture catalog → category → section for every Snoonu product (read-only)</div>
+            </a>
+            <a
+              href="/snoonu-browser-audit"
+              className="block p-4 border border-red-300 bg-red-50 rounded-md hover:bg-red-100 transition-colors"
+            >
+              <div className="font-medium">Snoonu Browser Audit →</div>
+              <div className="text-xs text-muted-foreground mt-0.5">READ-ONLY product audit — capture exact catalog, price, options, variants</div>
+            </a>
+            <a
               href="/export-center"
               className="block p-4 border border-border rounded-md hover:bg-muted/50 transition-colors"
             >
@@ -129,6 +157,27 @@ SELECT id, email, 'Fahad', 'owner', true
             >
               <div className="font-medium">Review Dashboard →</div>
               <div className="text-xs text-muted-foreground mt-0.5">Approve, edit, reject AI drafts in bulk</div>
+            </a>
+            <a
+              href="/support"
+              className="block p-4 border border-border rounded-md hover:bg-muted/50 transition-colors"
+            >
+              <div className="font-medium">Support Center →</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Manage WhatsApp conversations, AI/human handover, notes</div>
+            </a>
+            <a
+              href="/whatsapp-test"
+              className="block p-4 border border-border rounded-md hover:bg-muted/50 transition-colors"
+            >
+              <div className="font-medium">WhatsApp Test Console →</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Chat with the AI agent locally (dev only)</div>
+            </a>
+            <a
+              href="/whatsapp-live"
+              className="block p-4 border border-border rounded-md hover:bg-muted/50 transition-colors"
+            >
+              <div className="font-medium">WhatsApp Live Connection →</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Connect Meta Cloud API, view logs, send test messages</div>
             </a>
           </div>
         </section>

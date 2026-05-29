@@ -1,0 +1,35 @@
+
+============================================================
+  MALIKA UNIVERSE — Full Stack Launcher
+============================================================
+
+[1/3] Waiting for dev server on http://localhost:3001 ...
+      ✅ Dev server ready in 4.6s
+
+[2/3] Waiting for ngrok tunnel ...
+      ✅ Ngrok ready in 0.0s
+         Public URL: https://8cf7-212-70-115-7.ngrok-free.app
+
+[3/3] Testing webhook via ngrok ...
+      ✅ Webhook responds correctly through ngrok
+
+============================================================
+  STATUS
+============================================================
+
+  Local admin:   http://localhost:3001
+  /support:      http://localhost:3001/support
+  /whatsapp-live: http://localhost:3001/whatsapp-live
+
+  📡 Webhook URL for Meta (paste this in Meta dashboard):
+     https://8cf7-212-70-115-7.ngrok-free.app/api/whatsapp/webhook
+
+     Verify token: malikas_verify_2026
+
+============================================================
+
+  ⚠ KEEP THIS WINDOW + "Malika Dev" + "Malika Ngrok" OPEN
+  ⚠ Closing any of them stops the service.
+
+  To stop everything, run STOP-ALL.bat
+
