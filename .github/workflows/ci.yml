@@ -36,4 +36,8 @@ jobs:
         run: pnpm test
 
       - name: Build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci.invalid
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
         run: pnpm build
