@@ -42,6 +42,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import type { Json } from '@malikas/db';
 import {
@@ -83,6 +84,9 @@ const Schema = z.object({
 });
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
+  // Owner-only gate FIRST — before body parse, admin client, or any DB work.
+  await requireActor(ROLE_SETS.ownerOnly);
+
   const body = Schema.parse(await req.json());
   const admin = createAdminSupabaseClient();
 
@@ -100,7 +104,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     .select('id')
     .single();
   if (scrapeErr || !scrapeRow) {
-    return err('SCRAPE_INSERT_FAILED', scrapeErr?.message ?? 'no row', 500);
+    console.error(`[apply-catalog-section] scrape insert failed (section=${body.section_name})`, scrapeErr);
+    return err('SCRAPE_INSERT_FAILED', 'Internal server error', 500);
   }
   const scrapeId = scrapeRow.id;
 
@@ -138,7 +143,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   try {
     candList = await loadAllSnoonuCandidates();
   } catch (e) {
-    return err('LOAD_CANDIDATES_FAILED', (e as Error).message, 500);
+    console.error(`[apply-catalog-section] load candidates failed (section=${body.section_name})`, e);
+    return err('LOAD_CANDIDATES_FAILED', 'Internal server error', 500);
   }
   const indexes = buildCandidateIndexes(candList);
 
@@ -253,11 +259,12 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
         .from('snoonu_section_product_links')
         .insert(linkInserts.slice(i, i + CHUNK));
       if (linkErr) {
+        console.error(`[apply-catalog-section] link insert failed (scrape_id=${scrapeId})`, linkErr);
         await admin
           .from('snoonu_section_scrapes')
-          .update({ status: 'error', error_message: linkErr.message, completed_at: new Date().toISOString() })
+          .update({ status: 'error', error_message: 'Catalog section apply failed', completed_at: new Date().toISOString() })
           .eq('id', scrapeId);
-        return err('LINK_INSERT_FAILED', linkErr.message, 500);
+        return err('LINK_INSERT_FAILED', 'Internal server error', 500);
       }
     }
   }

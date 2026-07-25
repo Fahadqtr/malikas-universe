@@ -23,7 +23,8 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
-import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
+import { createAdminSupabaseClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
@@ -40,6 +41,9 @@ const BulkSchema = z.object({
 type RouteContext = { params: { batchId: string } };
 
 export const POST = withErrorHandling(async (req: NextRequest, { params }: RouteContext) => {
+  // Owner-only gate FIRST — before batchId parse, body parse, admin client, or DB.
+  const actor = await requireActor(ROLE_SETS.ownerOnly);
+
   const batchId = Number(params.batchId);
   if (!Number.isInteger(batchId) || batchId <= 0) {
     return err('BAD_BATCH_ID', 'Invalid batch id', 400);
@@ -49,10 +53,6 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: Route
   if (!body.item_ids?.length && !body.filter) {
     return err('NO_SELECTION', 'Provide item_ids or filter', 400);
   }
-
-  const userClient = createServerSupabaseClient();
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return err('UNAUTHORIZED', 'Login required', 401);
 
   const admin = createAdminSupabaseClient();
 
@@ -64,7 +64,10 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: Route
     if (body.filter.image_status) q = q.eq('image_status', body.filter.image_status);
     if (body.filter.has_no_action) q = q.is('review_action', null);
     const { data, error } = await q;
-    if (error) return err('FILTER_QUERY_FAILED', error.message, 500);
+    if (error) {
+      console.error(`[bulk-action] filter query failed (batchId=${batchId})`, error);
+      return err('FILTER_QUERY_FAILED', 'Internal server error', 500);
+    }
     targetIds = (data ?? []).map((r) => (r as { id: number }).id);
   }
 
@@ -87,13 +90,16 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: Route
       .from('snoonu_import_items')
       .update({
         review_action: 'update_existing',
-        reviewed_by: user.id,
+        reviewed_by: actor.id ?? null,
         reviewed_at: new Date().toISOString(),
         status: 'reviewed',
       })
       .in('id', eligibleIds);
 
-    if (updErr) return err('UPDATE_FAILED', updErr.message, 500);
+    if (updErr) {
+      console.error(`[bulk-action] update_existing failed (batchId=${batchId}, count=${eligibleIds.length})`, updErr);
+      return err('UPDATE_FAILED', 'Internal server error', 500);
+    }
     return ok({ updated: eligibleIds.length, skipped });
   }
 
@@ -102,12 +108,15 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: Route
     .from('snoonu_import_items')
     .update({
       review_action: body.action,
-      reviewed_by: user.id,
+      reviewed_by: actor.id ?? null,
       reviewed_at: new Date().toISOString(),
       status: 'reviewed',
     })
     .in('id', targetIds);
 
-  if (updErr) return err('UPDATE_FAILED', updErr.message, 500);
+  if (updErr) {
+    console.error(`[bulk-action] bulk update failed (batchId=${batchId}, action=${body.action})`, updErr);
+    return err('UPDATE_FAILED', 'Internal server error', 500);
+  }
   return ok({ updated: targetIds.length, skipped: 0 });
 });
