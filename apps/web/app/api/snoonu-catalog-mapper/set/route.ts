@@ -16,7 +16,8 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
-import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
+import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import {
   parseManualPaste,
   parseFromBrowserDom,
@@ -68,11 +69,10 @@ const Schema = z.union([
 ]);
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
-  const body = Schema.parse(await req.json());
+  // Owner-only gate FIRST — before body parse, admin client, or any DB work.
+  await requireActor(ROLE_SETS.ownerOnly);
 
-  const userClient = createServerSupabaseClient();
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return err('UNAUTHORIZED', 'Login required', 401);
+  const body = Schema.parse(await req.json());
 
   const admin = createAdminSupabaseClient();
   const now = new Date().toISOString();
@@ -122,7 +122,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     .in('id', targetIds)
     .eq('platform', 'snoonu');
 
-  if (updErr) return err('UPDATE_FAILED', updErr.message, 500);
+  if (updErr) {
+    console.error(`[catalog-mapper/set] update failed (${targetIds.length} rows)`, updErr);
+    return err('UPDATE_FAILED', 'Internal server error', 500);
+  }
 
   return ok({
     updated: count ?? targetIds.length,

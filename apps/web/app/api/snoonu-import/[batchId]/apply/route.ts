@@ -20,7 +20,8 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import type { Database } from '@malikas/db';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
-import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
+import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import { inferMasterCategory } from '@/lib/master-categories';
 
 export const runtime = 'nodejs';
@@ -78,6 +79,9 @@ type ReviewedItem = {
 };
 
 export const POST = withErrorHandling(async (req: NextRequest, { params }: RouteContext) => {
+  // Owner-only gate FIRST — before batchId parse, body parse, admin client, or DB.
+  await requireActor(ROLE_SETS.ownerOnly);
+
   const batchId = Number(params.batchId);
   if (!Number.isInteger(batchId) || batchId <= 0) {
     return err('BAD_BATCH_ID', 'Invalid batch id', 400);
@@ -85,10 +89,6 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: Route
 
   const body = ApplySchema.parse(await req.json().catch(() => ({})));
   const dryRun = body.dry_run ?? false;
-
-  const userClient = createServerSupabaseClient();
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return err('UNAUTHORIZED', 'Login required', 401);
 
   const admin = createAdminSupabaseClient();
 
@@ -160,12 +160,12 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: Route
       }
     } catch (e) {
       failed++;
-      const msg = e instanceof Error ? e.message : String(e);
-      errors.push({ item_id: item.id, reason: msg });
+      console.error(`[snoonu-import/apply] item ${item.id} failed (batch ${batchId})`, e);
+      errors.push({ item_id: item.id, reason: 'Import apply failed' });
       if (!dryRun) {
         await admin
           .from('snoonu_import_items')
-          .update({ status: 'error', error_message: msg })
+          .update({ status: 'error', error_message: 'Import apply failed' })
           .eq('id', item.id);
       }
     }
@@ -295,7 +295,10 @@ async function applyCreateNew(
     product_status: 'draft',
   });
 
-  if (prodErr) return { ok: false, reason: `insert_product:${prodErr.message}` };
+  if (prodErr) {
+    console.error(`[snoonu-import/apply] product insert failed (item ${item.id})`, prodErr);
+    return { ok: false, reason: 'Import apply failed' };
+  }
 
   // product_images row
   if (item.imported_image_url && item.image_storage_path) {
@@ -354,7 +357,10 @@ async function applyUpdateExisting(
       .from('products')
       .update(updates as Database['public']['Tables']['products']['Update'])
       .eq('master_sku', item.matched_product_sku);
-    if (updErr) return { ok: false, reason: `update_product:${updErr.message}` };
+    if (updErr) {
+      console.error(`[snoonu-import/apply] product update failed (item ${item.id})`, updErr);
+      return { ok: false, reason: 'Import apply failed' };
+    }
   }
 
   // Append image if we pulled one
