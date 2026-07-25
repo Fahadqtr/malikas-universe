@@ -13,16 +13,27 @@
  *
  * SECURITY:
  *   • GET checks ?hub.verify_token against WHATSAPP_VERIFY_TOKEN env
- *   • POST currently does NOT verify the X-Hub-Signature-256 HMAC. TODO before
- *     going live with sensitive customer data — see:
+ *     (the handshake string you invent in Meta's webhook config).
+ *   • POST verifies the X-Hub-Signature-256 HMAC against WHATSAPP_APP_SECRET
+ *     (the Meta *App Secret* — a DIFFERENT value from WHATSAPP_VERIFY_TOKEN and
+ *     from WHATSAPP_TOKEN) BEFORE parsing, logging, or acting on any payload.
+ *     See docs/whatsapp-live-setup.md and:
  *     https://developers.facebook.com/docs/graph-api/webhooks/getting-started/webhooks-for-business-messaging#validating-payloads
  *
- * NOT ACTIVE UNTIL ENV CREDS ARE SET. Until then:
- *   • GET returns 200 with "webhook not configured" message
- *   • POST returns 200 (Meta retries on non-200) but does no work
+ * FAIL CLOSED — the POST handler rejects anything it cannot cryptographically
+ * attribute to Meta, and does so BEFORE touching the database, the AI agent, or
+ * the Graph API:
+ *   • WHATSAPP_APP_SECRET not configured → 503, no processing, no logging.
+ *   • Missing / malformed / mismatched signature → 401, no processing, no
+ *     logging of the payload, no AI call, no outbound message.
+ *   • Valid signature → the normal flow runs (still gated by
+ *     WHATSAPP_LIVE_ENABLED for auto-reply).
+ * There is deliberately NO bypass (no dev skip, no "live mode off" shortcut,
+ * no fallback to another secret): even in log-only mode we first prove the
+ * request came from Meta.
  *
- * Run /api/whatsapp/reply-test locally first to verify the agent works,
- * then set env vars + register this URL in Meta dashboard:
+ * Run /api/whatsapp/reply-test locally first to verify the agent works, then
+ * set env vars (incl. WHATSAPP_APP_SECRET) + register this URL in Meta:
  *   https://your-tunnel.loca.lt/api/whatsapp/webhook
  *
  * See: docs/whatsapp-live-setup.md
@@ -35,6 +46,7 @@ import {
   parseInboundWebhook,
   sendWhatsappText,
 } from '@/lib/whatsapp';
+import { verifyWhatsappWebhookSignature } from '@/lib/whatsapp-signature';
 import { runWhatsappAgent } from '@/lib/agent/agent';
 
 export const runtime = 'nodejs';
@@ -67,14 +79,47 @@ export async function GET(req: NextRequest) {
 // ─── POST — Inbound customer message ─────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // ─── STEP 1: read the RAW body exactly once ──────────────────────────────
+  // We MUST hash the exact bytes Meta signed. Using req.json() would re-parse
+  // and re-serialize, changing whitespace/ordering and breaking the HMAC match,
+  // so we read the raw text and only JSON.parse AFTER the signature is verified.
+  const rawBody = await req.text();
+  const signature = req.headers.get('x-hub-signature-256');
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+
+  // ─── STEP 2: fail closed — verify BEFORE parsing/logging/DB/AI/send ───────
+  const verdict = verifyWhatsappWebhookSignature(rawBody, signature, appSecret);
+  if (!verdict.valid) {
+    if (verdict.reason === 'app_secret_missing') {
+      // Server misconfigured — cannot attribute the request to Meta.
+      // Do NOT parse or persist anything. Generic message only (no secret, no body).
+      console.error(
+        '[whatsapp] webhook POST rejected: WHATSAPP_APP_SECRET is not configured',
+      );
+      return NextResponse.json(
+        { ok: false, error: 'webhook not configured' },
+        { status: 503 },
+      );
+    }
+    // Missing / malformed / wrong-algo / wrong-length / mismatched signature.
+    // Generic log line only — never the App Secret, the signature, the body,
+    // or the customer's phone. No DB write, no AI, no outbound message.
+    console.warn('[whatsapp] webhook signature verification failed');
+    return NextResponse.json(
+      { ok: false, error: 'invalid signature' },
+      { status: 401 },
+    );
+  }
+
+  // ─── STEP 3: signature verified → NOW it is safe to parse the raw body ────
   // Meta requires us to return 200 quickly. If processing takes too long,
   // Meta retries and we end up replying to the same message twice.
   // Strategy: log inline, agent call inline (fast enough for <1 msg/sec).
   let payload: unknown;
   try {
-    payload = await req.json();
+    payload = JSON.parse(rawBody);
   } catch {
-    // Bad JSON — log and ack
+    // Bad JSON from a signature-verified sender — log and ack
     await logWhatsappEvent({
       direction: 'inbound',
       phone: null,
