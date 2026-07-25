@@ -84,6 +84,24 @@ A verify token is just a shared secret you make up. Meta sends it on every webho
 WHATSAPP_VERIFY_TOKEN=malikas_verify_2026
 ```
 
+### B5b. Copy the Meta **App Secret** (required for the webhook POST)
+
+This is a **different** value from the two above. Meta signs every inbound
+webhook POST with an HMAC keyed on your App Secret; the route rejects any POST
+whose signature it cannot verify.
+
+1. Meta dashboard → your App → **Settings → Basic**.
+2. Find **App Secret** → click **Show** (may re-prompt for your password).
+3. Copy it into `WHATSAPP_APP_SECRET`.
+
+Three secrets, three jobs — do not mix them up:
+
+| Env var | What it is | Used for |
+|---|---|---|
+| `WHATSAPP_TOKEN` | Graph API access token (`EAA…`) | Sending messages (outbound Graph calls) |
+| `WHATSAPP_VERIFY_TOKEN` | A string you invent | GET handshake only (echo the challenge) |
+| `WHATSAPP_APP_SECRET` | Meta App Secret | Verifying the `X-Hub-Signature-256` HMAC on inbound POSTs |
+
 ### B6. Paste into `apps/web/.env.local`
 
 ```env
@@ -91,12 +109,19 @@ WHATSAPP_VERIFY_TOKEN=malikas_verify_2026
 WHATSAPP_TOKEN=EAA…long_string_from_B4
 WHATSAPP_PHONE_ID=123456789012345
 WHATSAPP_VERIFY_TOKEN=malikas_verify_2026
+WHATSAPP_APP_SECRET=…app_secret_from_B5b
 
 # SAFETY: keep this OFF until you've verified inbound logs look correct
 WHATSAPP_LIVE_ENABLED=false
 ```
 
-> **Never commit these.** `.env.local` is gitignored.
+> **Never commit these.** `.env.local` is gitignored. In production, set them in
+> Doppler / Vercel env vars only — never in the repo.
+>
+> ⚠ **The webhook POST fails closed without `WHATSAPP_APP_SECRET`:** if it is not
+> set, `/api/whatsapp/webhook` returns **503** and processes nothing (no logging,
+> no AI, no reply). This is intentional — we never act on a request we cannot
+> prove came from Meta, even while `WHATSAPP_LIVE_ENABLED=false`.
 
 ---
 
@@ -349,13 +374,57 @@ Phone-number switching (test phone → real business number) is done in **WhatsA
 
 ---
 
-## Webhook signature verification (TODO before going public)
+## Webhook signature verification (IMPLEMENTED)
 
-Right now we accept any POST to `/api/whatsapp/webhook` without verifying it came from Meta. For local testing on a tunnel that nobody knows about, this is fine. For prod, add HMAC verification on the `X-Hub-Signature-256` header. See:
+Every POST to `/api/whatsapp/webhook` is now verified with an HMAC-SHA256 over the
+**raw request body**, keyed on `WHATSAPP_APP_SECRET`, checked against Meta's
+`X-Hub-Signature-256: sha256=<hex>` header. Verification runs **before** the body
+is parsed, logged, stored, or handed to the AI agent. See:
 
 <https://developers.facebook.com/docs/graph-api/webhooks/getting-started/webhooks-for-business-messaging#validating-payloads>
 
-This is on the security backlog — flag before going live to real customers at scale.
+Behaviour (fail closed):
+
+| Condition | Response | Side effects |
+|---|---|---|
+| `WHATSAPP_APP_SECRET` not set | **503** | none — nothing parsed, logged, or sent |
+| Header missing / malformed / wrong algo / wrong length / mismatch | **401** | none — no DB write, no AI, no outbound |
+| Signature valid | continues normal flow | still gated by `WHATSAPP_LIVE_ENABLED` for auto-reply |
+
+There is **no bypass** — no dev skip flag, no "live mode off" shortcut, and no
+fallback to another secret. Even in log-only mode (`WHATSAPP_LIVE_ENABLED=false`)
+we first prove the request came from Meta. The GET handshake is unchanged and
+still uses `WHATSAPP_VERIFY_TOKEN` (a different value — see B5/B5b).
+
+Implementation:
+
+- Verifier: `apps/web/lib/whatsapp-signature.ts` (`verifyWhatsappWebhookSignature`)
+- Route: `apps/web/app/api/whatsapp/webhook/route.ts` (reads `await req.text()`
+  once, then verifies before `JSON.parse`)
+- Tests: `apps/web/lib/__tests__/whatsapp-signature.test.ts`
+
+### Testing the signature locally (no secret disclosure)
+
+Generate a valid signature from the **same** raw body you POST, using your local
+App Secret held in an env var (never hard-code it):
+
+```bash
+# BODY must be the EXACT bytes you send (same whitespace/ordering).
+BODY='{"entry":[{"changes":[{"value":{"messages":[{"from":"974...","id":"wamid.TEST","type":"text","text":{"body":"hi"}}]}}]}]}'
+
+# App Secret read from the environment — not written to disk or history.
+SIG="sha256=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$WHATSAPP_APP_SECRET" | awk '{print $2}')"
+
+curl -sS -X POST http://localhost:3001/api/whatsapp/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-Hub-Signature-256: $SIG" \
+  --data-raw "$BODY"
+```
+
+- Correct `$SIG` for that exact `$BODY` → processed (200 / logged).
+- Any change to `$BODY` after signing, a wrong/absent header, or an unset
+  `WHATSAPP_APP_SECRET` → rejected (401 / 503). The unit tests cover all of these
+  cases without touching Meta or the network.
 
 ---
 
@@ -375,6 +444,8 @@ This is on the security backlog — flag before going live to real customers at 
 | Local-agent test UI | `/whatsapp-test` |
 | Migration | `supabase/migrations/00000000000010_whatsapp_live.sql` |
 | WhatsApp lib | `apps/web/lib/whatsapp.ts` |
+| Signature verifier | `apps/web/lib/whatsapp-signature.ts` |
+| Signature tests | `apps/web/lib/__tests__/whatsapp-signature.test.ts` |
 | Webhook route | `apps/web/app/api/whatsapp/webhook/route.ts` |
 
 ---
@@ -384,5 +455,6 @@ This is on the security backlog — flag before going live to real customers at 
 If you update Meta endpoints, version (currently `v22.0`), or the env var names, also update:
 
 - `apps/web/lib/whatsapp.ts` (the `API_VERSION` constant)
-- `.env.example` (top-level)
+- `apps/web/lib/whatsapp-signature.ts` (HMAC verifier — if the header/algorithm changes)
+- `.env.example` (top-level — incl. `WHATSAPP_APP_SECRET`)
 - This doc
