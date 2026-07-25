@@ -43,6 +43,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
+import type { Json } from '@malikas/db';
 import {
   buildCandidateIndexes,
   matchScrapedProduct,
@@ -339,7 +340,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       products_matched: matched,
       products_unmatched: unmatched,
       duplicates_in_section,
-      sample_unmatched: sampleUnmatched,
+      sample_unmatched: sampleUnmatched as Json,
       status: 'completed',
       completed_at: new Date().toISOString(),
     })

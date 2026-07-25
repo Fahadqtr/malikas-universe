@@ -46,12 +46,17 @@ export function err(
  *     return ok(data);
  *   });
  */
-export function withErrorHandling<Args extends unknown[], R>(
-  handler: (...args: Args) => Promise<NextResponse<R>>,
+export function withErrorHandling<Args extends unknown[]>(
+  // Handlers return `ok(...)` (NextResponse<ApiSuccess<T>>) OR `err(...)`
+  // (NextResponse<ApiError>). Those are different NextResponse<...> generics, so
+  // there is no single `R` to unify. Type the parameter as the unparameterised
+  // NextResponse (NextResponse<unknown>), which both branches are assignable to —
+  // no `any`, and the envelope is still enforced at the `ok`/`err` helpers.
+  handler: (...args: Args) => Promise<NextResponse>,
 ) {
-  return async (...args: Args): Promise<NextResponse<ApiResponse<unknown>>> => {
+  return async (...args: Args): Promise<NextResponse> => {
     try {
-      return (await handler(...args)) as NextResponse<ApiResponse<unknown>>;
+      return await handler(...args);
     } catch (e) {
       if (e instanceof ZodError) {
         return err('VALIDATION_ERROR', 'Invalid input', 400, e.flatten());

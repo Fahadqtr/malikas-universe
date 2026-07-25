@@ -183,7 +183,7 @@ export function parseSnoonuExportBuffer(
   const sheet_name = wb.SheetNames[0];
   if (!sheet_name) throw new Error('Workbook has no sheets');
 
-  const ws = wb.Sheets[sheet_name];
+  const ws = wb.Sheets[sheet_name]!;
   const records = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
     defval: null,
     raw: true,
@@ -199,7 +199,7 @@ export function parseSnoonuExportBuffer(
     };
   }
 
-  const headers = Object.keys(records[0]);
+  const headers = Object.keys(records[0]!);
   const cols = resolveColumns(headers);
 
   // Surface missing-column warnings up front so the API caller can show them.

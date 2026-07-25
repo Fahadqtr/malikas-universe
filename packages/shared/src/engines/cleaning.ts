@@ -36,6 +36,10 @@ export function extractSize(raw: string | undefined | null): string | null {
   if (!m) return null;
   const value = m[1];
   let unit = m[2];
+  // Regex groups 1 and 2 are both required by the pattern, but under
+  // noUncheckedIndexedAccess they type as `string | undefined`. Guard
+  // explicitly so `unit` can index unitMap and both are safe to interpolate.
+  if (value === undefined || unit === undefined) return null;
   const unitMap: Record<string, string> = {
     millilitre: 'ml', milliliter: 'ml', liter: 'l', litre: 'l', gram: 'g',
     piece: 'pcs', pieces: 'pcs', count: 'pcs', ct: 'pcs',

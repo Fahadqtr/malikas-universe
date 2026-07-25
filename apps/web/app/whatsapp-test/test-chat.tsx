@@ -127,7 +127,7 @@ export function TestChat() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-4">
       {/* LEFT — chat */}
-      <Card className="!p-0 overflow-hidden flex flex-col" style={{ minHeight: 600 }}>
+      <Card className="!p-0 overflow-hidden flex flex-col">
         {/* Chat header */}
         <div className="border-b border-border bg-muted/30 p-3 flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[200px]">
@@ -245,7 +245,7 @@ export function TestChat() {
         </Card>
 
         {/* Last reply inspector */}
-        {turns.length > 0 && turns[turns.length - 1].role === 'agent' && (
+        {turns.length > 0 && turns[turns.length - 1]!.role === 'agent' && (
           <ReplyInspector reply={(turns[turns.length - 1] as Extract<ChatTurn, { role: 'agent' }>).meta} />
         )}
       </div>
@@ -284,10 +284,10 @@ function ReplyInspector({ reply }: { reply: AgentReply }) {
       {reply.escalations.length > 0 && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs space-y-1">
           <div className="font-semibold text-destructive uppercase">
-            ⚠ Escalated · {reply.escalations[0].severity}
+            ⚠ Escalated · {reply.escalations[0]!.severity}
           </div>
-          <div><span className="font-medium">Reason:</span> {reply.escalations[0].reason}</div>
-          <div><span className="font-medium">Summary:</span> {reply.escalations[0].summary}</div>
+          <div><span className="font-medium">Reason:</span> {reply.escalations[0]!.reason}</div>
+          <div><span className="font-medium">Summary:</span> {reply.escalations[0]!.summary}</div>
         </div>
       )}
 

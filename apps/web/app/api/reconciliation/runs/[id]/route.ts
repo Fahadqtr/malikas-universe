@@ -52,8 +52,8 @@ export const GET = withErrorHandling(async (_req: NextRequest, { params }: Route
     byType[row.finding_type] = (byType[row.finding_type] ?? 0) + 1;
     bySeverity[row.severity] = (bySeverity[row.severity] ?? 0) + 1;
     if (!byPlatform[row.target_platform]) byPlatform[row.target_platform] = {};
-    byPlatform[row.target_platform][row.finding_type] =
-      (byPlatform[row.target_platform][row.finding_type] ?? 0) + 1;
+    byPlatform[row.target_platform]![row.finding_type] =
+      (byPlatform[row.target_platform]![row.finding_type] ?? 0) + 1;
   }
 
   return ok({

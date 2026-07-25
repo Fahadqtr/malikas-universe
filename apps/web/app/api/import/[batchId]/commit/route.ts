@@ -9,6 +9,7 @@
  */
 import { z } from 'zod';
 import { NextRequest } from 'next/server';
+import type { Database } from '@malikas/db';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 
@@ -84,16 +85,16 @@ export const POST = withErrorHandling(
 
       const { data, error: insertErr } = await admin
         .from('products')
-        .insert(insertPayload)
+        .insert(insertPayload as Database['public']['Tables']['products']['Insert'])
         .select('master_sku')
         .single();
 
       if (insertErr || !data) {
-        failed.push({ raw_index: row.row_number, reason: insertErr?.message ?? 'unknown' });
+        failed.push({ raw_index: row.row_number ?? 0, reason: insertErr?.message ?? 'unknown' });
         continue;
       }
 
-      inserted.push({ master_sku: data.master_sku, raw_index: row.row_number });
+      inserted.push({ master_sku: data.master_sku, raw_index: row.row_number ?? 0 });
     }
 
     // Update batch summary

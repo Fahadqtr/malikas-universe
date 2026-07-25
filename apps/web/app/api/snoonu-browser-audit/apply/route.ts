@@ -21,6 +21,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
+import type { Database } from '@malikas/db';
 
 export const runtime = 'nodejs';
 
@@ -164,7 +165,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   if (Object.keys(sanitized).length > 0) {
     const { error: updErr } = await admin
       .from('platform_products')
-      .update(sanitized)
+      .update(sanitized as Database['public']['Tables']['platform_products']['Update'])
       .eq('id', a.product_id);
     if (updErr) return err('PRODUCT_UPDATE_FAILED', updErr.message, 500);
   }
@@ -183,7 +184,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
 
   const { error: auditUpdErr } = await admin
     .from('snoonu_browser_audits')
-    .update(auditUpdate)
+    .update(auditUpdate as Database['public']['Tables']['snoonu_browser_audits']['Update'])
     .eq('id', a.id);
   if (auditUpdErr) return err('AUDIT_UPDATE_FAILED', auditUpdErr.message, 500);
 

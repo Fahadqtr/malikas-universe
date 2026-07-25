@@ -313,7 +313,7 @@ export function SectionScraperPanel() {
       <section className="border border-zinc-200 bg-zinc-50 rounded-lg p-4 text-xs text-zinc-700">
         <strong>How the scrape works:</strong> The extractor walks every
         catalog list page (auto-paginates up to 30 pages), collects every
-        product's SPI + name + price + image, deduplicates, and returns JSON.
+        product&apos;s SPI + name + price + image, deduplicates, and returns JSON.
         It never opens product detail, never clicks Save/Edit/Delete/Update
         buttons. Submitting the JSON here writes only to our local DB —
         Snoonu is never modified.

@@ -146,22 +146,22 @@ export function extractVariantAttrs(rawName: string | null | undefined): Extract
   // ─── Shade ──────────────────────────────────────────────────────────────
   const shadeM = name.match(SHADE_RE);
   if (shadeM) {
-    out.variant_shade = shadeM[1].toUpperCase();
+    out.variant_shade = shadeM[1]!.toUpperCase();
     out.extracted_tokens.push(shadeM[0]);
   } else {
     const standaloneM = name.match(STANDALONE_SHADE_RE);
     if (standaloneM) {
-      out.variant_shade = standaloneM[1].toUpperCase();
-      out.extracted_tokens.push(standaloneM[1]);
+      out.variant_shade = standaloneM[1]!.toUpperCase();
+      out.extracted_tokens.push(standaloneM[1]!);
     }
   }
 
   // ─── Size / volume ──────────────────────────────────────────────────────
   const sizeM = name.match(SIZE_RE);
   if (sizeM) {
-    const valueRaw = sizeM[1].replace(',', '.');
+    const valueRaw = sizeM[1]!.replace(',', '.');
     const value = parseFloat(valueRaw);
-    const unit = normalizeVolumeUnit(sizeM[2]);
+    const unit = normalizeVolumeUnit(sizeM[2]!);
     out.variant_size = `${valueRaw}${unit}`;
     out.variant_volume_value = Number.isFinite(value) ? value : null;
     out.variant_volume_unit = unit;
@@ -171,7 +171,7 @@ export function extractVariantAttrs(rawName: string | null | undefined): Extract
   // ─── Pack count ─────────────────────────────────────────────────────────
   const packM = name.match(PACK_RE);
   if (packM) {
-    const n = parseInt(packM[1], 10);
+    const n = parseInt(packM[1]!, 10);
     if (Number.isFinite(n)) {
       out.variant_pack = n;
       out.extracted_tokens.push(packM[0]);
@@ -205,7 +205,7 @@ export function extractVariantAttrs(rawName: string | null | undefined): Extract
 function capitalize(s: string): string {
   return s
     .split(' ')
-    .map((w) => (w.length > 0 ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w))
+    .map((w) => (w.length > 0 ? w[0]!.toUpperCase() + w.slice(1).toLowerCase() : w))
     .join(' ');
 }
 

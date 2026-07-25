@@ -1,10 +1,12 @@
-import IORedis from 'ioredis';
+/**
+ * Shared Redis connection singleton for all BullMQ queues/workers.
+ *
+ * The config + factory live in `./redis-config.ts` (side-effect free). This
+ * module creates the one live connection the app shares. Public surface
+ * (`connection`, `QUEUE_PREFIX`) is unchanged for the queue modules.
+ */
+import { createRedisConnection } from './redis-config.js';
 
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
+export { QUEUE_PREFIX, REDIS_URL } from './redis-config.js';
 
-export const connection = new IORedis(REDIS_URL, {
-  maxRetriesPerRequest: null,
-  enableReadyCheck: false,
-});
-
-export const QUEUE_PREFIX = process.env.REDIS_QUEUE_PREFIX ?? 'malikas';
+export const connection = createRedisConnection();

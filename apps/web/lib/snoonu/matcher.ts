@@ -243,7 +243,7 @@ export async function matchExistingProduct(extracted: ExtractedProduct): Promise
   if (scored.length === 0) return { kind: 'new', confidence: 0 };
 
   // 6. Decide kind based on top score
-  const top = scored[0];
+  const top = scored[0]!;
 
   if (top.confidence >= 0.92) {
     return {
@@ -355,7 +355,7 @@ export function hashHamming(a: string | null, b: string | null): number {
   if (!a || !b || a.length !== b.length) return -1;
   let dist = 0;
   for (let i = 0; i < a.length; i++) {
-    let x = parseInt(a[i], 16) ^ parseInt(b[i], 16);
+    let x = parseInt(a[i]!, 16) ^ parseInt(b[i]!, 16);
     while (x) {
       dist += x & 1;
       x >>= 1;

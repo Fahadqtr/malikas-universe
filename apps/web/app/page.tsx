@@ -24,7 +24,7 @@ export default async function HomePage() {
       .select('full_name, role, email')
       .eq('id', user.id)
       .single();
-    profile = (profileRes.data as never) ?? null;
+    profile = profileRes.data ?? null;
 
     const [catRes, brandRes, prodRes] = await Promise.all([
       admin.from('categories').select('id', { count: 'exact', head: true }),

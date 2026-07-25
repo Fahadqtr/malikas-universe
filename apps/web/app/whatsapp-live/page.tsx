@@ -49,7 +49,7 @@ export default async function WhatsappLivePage() {
             </div>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Connect Malika's WhatsApp Business number through Meta Cloud API.
+            Connect Malika&apos;s WhatsApp Business number through Meta Cloud API.
             See <code className="text-xs bg-muted px-1 py-0.5 rounded">docs/whatsapp-live-setup.md</code> for step-by-step setup.
           </p>
         </header>

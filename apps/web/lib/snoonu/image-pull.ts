@@ -94,7 +94,7 @@ async function fetchImageBytes(url: string): Promise<
       return { ok: false, reason: `http_${res.status}`, http_status: res.status };
     }
 
-    const ctRaw = (res.headers.get('content-type') ?? '').toLowerCase().split(';')[0].trim();
+    const ctRaw = ((res.headers.get('content-type') ?? '').toLowerCase().split(';')[0] ?? '').trim();
     const content_type = ctRaw || 'image/jpeg';
 
     if (!ALLOWED_TYPES.has(content_type)) {
@@ -156,30 +156,30 @@ function readImageDimensions(buf: Uint8Array, contentType: string): { width: num
     if (contentType.includes('png')) {
       // PNG IHDR at offset 16 (width) and 20 (height), big-endian
       if (buf.length < 24) return null;
-      const w = (buf[16] << 24) | (buf[17] << 16) | (buf[18] << 8) | buf[19];
-      const h = (buf[20] << 24) | (buf[21] << 16) | (buf[22] << 8) | buf[23];
+      const w = (buf[16]! << 24) | (buf[17]! << 16) | (buf[18]! << 8) | buf[19]!;
+      const h = (buf[20]! << 24) | (buf[21]! << 16) | (buf[22]! << 8) | buf[23]!;
       return w > 0 && h > 0 ? { width: w, height: h } : null;
     }
     if (contentType.includes('webp')) {
       // VP8L: starts at byte 12 = "VP8L", width-1 at bytes 21-22 LE (14 bits each)
       // VP8 : width/height at offset 26-29
       if (buf.length < 30) return null;
-      const fmt = String.fromCharCode(buf[12], buf[13], buf[14], buf[15]);
+      const fmt = String.fromCharCode(buf[12]!, buf[13]!, buf[14]!, buf[15]!);
       if (fmt === 'VP8L') {
-        const b0 = buf[21], b1 = buf[22], b2 = buf[23], b3 = buf[24];
+        const b0 = buf[21]!, b1 = buf[22]!, b2 = buf[23]!, b3 = buf[24]!;
         const w = 1 + (((b1 & 0x3f) << 8) | b0);
         const h = 1 + (((b3 & 0x0f) << 10) | (b2 << 2) | ((b1 & 0xc0) >> 6));
         return { width: w, height: h };
       }
       if (fmt === 'VP8 ') {
-        const w = (buf[26] | (buf[27] << 8)) & 0x3fff;
-        const h = (buf[28] | (buf[29] << 8)) & 0x3fff;
+        const w = (buf[26]! | (buf[27]! << 8)) & 0x3fff;
+        const h = (buf[28]! | (buf[29]! << 8)) & 0x3fff;
         return w > 0 && h > 0 ? { width: w, height: h } : null;
       }
       if (fmt === 'VP8X') {
         // Extended header: dims at bytes 24..29 (width-1, height-1 as 24-bit LE)
-        const w = 1 + (buf[24] | (buf[25] << 8) | (buf[26] << 16));
-        const h = 1 + (buf[27] | (buf[28] << 8) | (buf[29] << 16));
+        const w = 1 + (buf[24]! | (buf[25]! << 8) | (buf[26]! << 16));
+        const h = 1 + (buf[27]! | (buf[28]! << 8) | (buf[29]! << 16));
         return { width: w, height: h };
       }
       return null;
@@ -197,17 +197,18 @@ function readImageDimensions(buf: Uint8Array, contentType: string): { width: num
         i += 2;
         // SOF0..SOF15 (except DHT C4, JPG C8, DAC CC)
         const isSof =
+          marker !== undefined &&
           marker >= 0xc0 && marker <= 0xcf &&
           marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
         if (isSof) {
           if (i + 7 > buf.length) return null;
-          const h = (buf[i + 3] << 8) | buf[i + 4];
-          const w = (buf[i + 5] << 8) | buf[i + 6];
+          const h = (buf[i + 3]! << 8) | buf[i + 4]!;
+          const w = (buf[i + 5]! << 8) | buf[i + 6]!;
           return w > 0 && h > 0 ? { width: w, height: h } : null;
         }
         // Otherwise skip segment using 2-byte length
         if (i + 2 > buf.length) return null;
-        const segLen = (buf[i] << 8) | buf[i + 1];
+        const segLen = (buf[i]! << 8) | buf[i + 1]!;
         if (segLen < 2) return null;
         i += segLen;
       }
@@ -363,7 +364,7 @@ export async function pullAllImagesForSku(
   }
 
   // Primary always overwrites — it's the canonical product image.
-  const primary = await pullImageForSku(sku, sourceUrls[0], { overwrite: true });
+  const primary = await pullImageForSku(sku, sourceUrls[0]!, { overwrite: true });
   const extras: Array<PulledImage | PullFailure> = [];
 
   for (let i = 1; i < sourceUrls.length && i < 9; i++) {
@@ -371,7 +372,7 @@ export async function pullAllImagesForSku(
     // eslint-disable-next-line no-await-in-loop
     await new Promise((r) => setTimeout(r, 800));
     // eslint-disable-next-line no-await-in-loop
-    const result = await pullImageForSku(sku, sourceUrls[i], { overwrite: false });
+    const result = await pullImageForSku(sku, sourceUrls[i]!, { overwrite: false });
     extras.push(result);
   }
 

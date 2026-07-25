@@ -14,6 +14,7 @@
  */
 
 import { z } from 'zod';
+import type { Database } from '@malikas/db';
 import { productCreateSchema, productUpdateSchema } from '@malikas/shared';
 import { BaseService, ServiceError } from './base.service';
 
@@ -222,7 +223,7 @@ export class ProductsService extends BaseService {
     const original = await this.findBySku(master_sku);
 
     const { master_sku: _, id: __, created_at, updated_at, deleted_at, embedding, ...copyable } =
-      original as Record<string, unknown> & { master_sku: string };
+      original as Database['public']['Tables']['products']['Row'];
 
     const payload = {
       ...copyable,

@@ -20,6 +20,7 @@
  *   • Never log raw tokens — only configured/missing status.
  */
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
+import type { Json } from '@malikas/db';
 
 const API_VERSION = 'v22.0';
 const BASE = 'https://graph.facebook.com';
@@ -277,7 +278,7 @@ export async function logWhatsappEvent(opts: {
     await admin.from('whatsapp_webhook_logs').insert({
       direction: opts.direction,
       phone: opts.phone,
-      payload: opts.payload ?? {},
+      payload: (opts.payload ?? {}) as Json,
       status: opts.status,
       error_message: opts.error_message ?? null,
       wamid: opts.wamid ?? null,

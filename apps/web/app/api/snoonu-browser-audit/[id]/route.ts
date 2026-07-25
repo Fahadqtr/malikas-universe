@@ -9,6 +9,7 @@
 
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import type { Database } from '@malikas/db';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
 
@@ -80,7 +81,10 @@ export const PATCH = withErrorHandling(async (req: NextRequest, { params }: Rout
       break;
   }
 
-  const { error } = await admin.from('snoonu_browser_audits').update(update).eq('id', id);
+  const { error } = await admin
+    .from('snoonu_browser_audits')
+    .update(update as Database['public']['Tables']['snoonu_browser_audits']['Update'])
+    .eq('id', id);
   if (error) return err('UPDATE_FAILED', error.message, 500);
 
   return ok({ audit_id: id, new_status: update.audit_status });

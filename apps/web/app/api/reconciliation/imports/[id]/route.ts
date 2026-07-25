@@ -75,7 +75,7 @@ export const GET = withErrorHandling(async (_req: NextRequest, { params }: Route
     const row = r as Record<string, unknown>;
     for (const field of CANONICAL_FIELDS) {
       const v = row[field];
-      if (v !== null && v !== undefined && v !== '') populated[field]++;
+      if (v !== null && v !== undefined && v !== '') populated[field] = populated[field]! + 1;
     }
   }
   const sampleSize = sampleRows?.length ?? 0;
@@ -97,7 +97,7 @@ export const GET = withErrorHandling(async (_req: NextRequest, { params }: Route
       catCounts.set(row.category_name, (catCounts.get(row.category_name) ?? 0) + 1);
     }
     if (row.category_source && row.category_source in sourceCounts) {
-      sourceCounts[row.category_source]++;
+      sourceCounts[row.category_source] = sourceCounts[row.category_source]! + 1;
     }
   }
 
@@ -110,7 +110,7 @@ export const GET = withErrorHandling(async (_req: NextRequest, { params }: Route
     import: importRow,
     sample_size: sampleSize,
     field_population: Object.fromEntries(
-      CANONICAL_FIELDS.map((f) => [f, { populated: populated[f], pct: sampleSize > 0 ? populated[f] / sampleSize : 0 }]),
+      CANONICAL_FIELDS.map((f) => [f, { populated: populated[f]!, pct: sampleSize > 0 ? populated[f]! / sampleSize : 0 }]),
     ),
     category_diagnostics: {
       category_column_mapped_from: colMap.category ?? null,

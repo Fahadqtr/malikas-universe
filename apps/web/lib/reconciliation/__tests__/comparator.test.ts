@@ -27,8 +27,6 @@ import {
 
 function makeRow(overrides: Partial<PlatformProductRow> & { id: number; platform: string }): PlatformProductRow {
   return {
-    id: overrides.id,
-    platform: overrides.platform,
     source_sku: null,
     barcode: null,
     name_en: null,
@@ -198,13 +196,13 @@ describe('comparator — finding completeness', () => {
     // names that differ slightly.
     const baseline2 = [
       makeRow({
-        ...baseline[0],
+        ...baseline[0]!,
         normalized_name: 'medicube zero pore pad 70 pads',
       }),
     ];
     const target2 = [
       makeRow({
-        ...target[0],
+        ...target[0]!,
         normalized_name: 'medicube zero pore pads 2 70 sheets',
       }),
     ];

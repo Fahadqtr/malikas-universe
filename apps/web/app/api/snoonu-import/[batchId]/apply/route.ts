@@ -18,6 +18,7 @@
 
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import type { Database } from '@malikas/db';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
 import { inferMasterCategory } from '@/lib/master-categories';
@@ -300,9 +301,9 @@ async function applyCreateNew(
   if (item.imported_image_url && item.image_storage_path) {
     await admin.from('product_images').insert({
       master_sku: item.generated_sku,
-      storage_path: item.image_storage_path,
-      public_url: item.imported_image_url,
-      filename: item.image_filename,
+      r2_key: item.image_storage_path,
+      cdn_url: item.imported_image_url,
+      filename: item.image_filename ?? '',
       is_primary: true,
       source_platform: 'snoonu',
       source_url: item.source_image_url,
@@ -351,7 +352,7 @@ async function applyUpdateExisting(
   if (Object.keys(updates).length > 0) {
     const { error: updErr } = await admin
       .from('products')
-      .update(updates)
+      .update(updates as Database['public']['Tables']['products']['Update'])
       .eq('master_sku', item.matched_product_sku);
     if (updErr) return { ok: false, reason: `update_product:${updErr.message}` };
   }
@@ -360,9 +361,9 @@ async function applyUpdateExisting(
   if (item.imported_image_url && item.image_storage_path) {
     await admin.from('product_images').insert({
       master_sku: item.matched_product_sku,
-      storage_path: item.image_storage_path,
-      public_url: item.imported_image_url,
-      filename: item.image_filename,
+      r2_key: item.image_storage_path,
+      cdn_url: item.imported_image_url,
+      filename: item.image_filename ?? '',
       is_primary: false,
       source_platform: 'snoonu',
       source_url: item.source_image_url,

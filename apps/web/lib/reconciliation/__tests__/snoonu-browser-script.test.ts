@@ -62,7 +62,8 @@ describe('SNOONU_EXTRACTOR_JS', () => {
     const clickMatches = [...SNOONU_EXTRACTOR_JS.matchAll(/(\w+)\.click\(\)/g)];
     const allowedReceivers = new Set(['genTab', 'availTab', 'choiceTab']);
     for (const m of clickMatches) {
-      expect(allowedReceivers.has(m[1])).toBe(true);
+      // Regex `/(\w+)\.click\(\)/g` always captures group 1 on a match.
+      expect(allowedReceivers.has(m[1]!)).toBe(true);
     }
     void forbidden;
   });
@@ -76,7 +77,10 @@ describe('SNOONU_EXTRACTOR_JS', () => {
   });
 
   it('returns valid JSON shape (ok=true path)', () => {
-    expect(SNOONU_EXTRACTOR_JS).toContain('"ok": true');
+    // The script builds its result with `JSON.stringify({ ok: true, ... })`, so
+    // the source contains the unquoted object literal `ok: true` (matching the
+    // `ok: false` failure-path convention asserted below), not a quoted key.
+    expect(SNOONU_EXTRACTOR_JS).toContain('ok: true');
     expect(SNOONU_EXTRACTOR_JS).toContain('snoonu_id');
     expect(SNOONU_EXTRACTOR_JS).toContain('listed_categories');
     expect(SNOONU_EXTRACTOR_JS).toContain('branches');

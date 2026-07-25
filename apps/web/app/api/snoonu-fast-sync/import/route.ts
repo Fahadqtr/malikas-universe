@@ -32,6 +32,7 @@
 import { NextRequest } from 'next/server';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
+import type { Json } from '@malikas/db';
 import {
   parseSnoonuExportBuffer,
   validateRow,
@@ -363,7 +364,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       stocks_captured: summary.stocks_captured,
       availability_captured: summary.availability_captured,
       branch_data_coverage: summary.branch_data_coverage_pct,
-      sample_changes,
+      sample_changes: sample_changes as Json,
       status: 'completed',
       completed_at: new Date().toISOString(),
     })

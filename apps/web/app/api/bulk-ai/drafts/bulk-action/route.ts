@@ -27,6 +27,7 @@ import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { getActor } from '@/lib/actor';
 import { getServices } from '@/lib/services';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
+import type { Json } from '@malikas/db';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -74,7 +75,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
         delete cleanMeta.error_message;
         const { error } = await admin
           .from('products')
-          .update({ ai_meta: cleanMeta, updated_by: actor.email })
+          .update({ ai_meta: cleanMeta as Json, updated_by: actor.email })
           .eq('master_sku', sku);
         if (error) throw new Error(error.message);
         succeeded.push(sku);

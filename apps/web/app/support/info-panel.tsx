@@ -40,7 +40,7 @@ export function InfoPanel({
 
   if (!detail) {
     return (
-      <Card className="text-sm text-muted-foreground" style={{ minHeight: 600 }}>
+      <Card className="text-sm text-muted-foreground">
         Pick a conversation to see customer info, notes, and actions.
       </Card>
     );

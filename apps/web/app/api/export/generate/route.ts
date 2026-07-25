@@ -151,7 +151,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     })
     .then(() => undefined);
 
-  return new NextResponse(fileBytes, {
+  return new NextResponse(fileBytes as BodyInit, {
     status: 200,
     headers: {
       'Content-Type': contentType,

@@ -73,7 +73,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   const sheetName = wb.SheetNames[0];
   if (!sheetName) return err('NO_SHEET', 'Workbook has no sheets', 400);
 
-  const ws = wb.Sheets[sheetName];
+  const ws = wb.Sheets[sheetName]!;
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
     defval: null,
     raw: true,
@@ -90,7 +90,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     });
   }
 
-  const headers = Object.keys(rows[0]);
+  const headers = Object.keys(rows[0]!);
 
   // Coverage + classification per header
   const headerReport = headers.map((name, index) => {

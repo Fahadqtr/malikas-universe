@@ -132,7 +132,7 @@ export function WhatsappLiveDashboard({ actorRole }: { actorRole: string }) {
             <strong>Temporary tokens expire every 2–24 hours.</strong>{' '}
             For stable operation, generate a <strong>permanent System User Token</strong> from
             Meta Business Settings. See <code className="bg-orange-100 px-1 rounded text-xs">docs/whatsapp-live-setup.md</code> →
-            "Permanent Token Setup".
+            &quot;Permanent Token Setup&quot;.
           </div>
         </div>
       </div>
@@ -242,7 +242,7 @@ export function WhatsappLiveDashboard({ actorRole }: { actorRole: string }) {
                 </li>
               </ol>
               <p className="text-xs mt-2 italic">
-                Full walkthrough with screenshots: <code className="bg-red-100 px-1 rounded">docs/whatsapp-live-setup.md</code> → "Permanent Token Setup via Meta Business Settings"
+                Full walkthrough with screenshots: <code className="bg-red-100 px-1 rounded">docs/whatsapp-live-setup.md</code> → &quot;Permanent Token Setup via Meta Business Settings&quot;
               </p>
             </div>
           </div>
@@ -286,7 +286,7 @@ export function WhatsappLiveDashboard({ actorRole }: { actorRole: string }) {
           <h2 className="font-semibold">Webhook callback URL</h2>
           <p className="text-xs text-muted-foreground">
             Paste this into Meta &gt; WhatsApp &gt; Configuration &gt; Webhook.
-            Run a tunnel (<code>ngrok http 3001</code>) first if you're on localhost.
+            Run a tunnel (<code>ngrok http 3001</code>) first if you&apos;re on localhost.
           </p>
           <div className="flex items-stretch gap-2">
             <Input
@@ -338,7 +338,7 @@ export function WhatsappLiveDashboard({ actorRole }: { actorRole: string }) {
           </div>
         ) : !isOwner ? (
           <div className="text-sm text-muted-foreground">
-            You don't have permission to send. Ask the owner.
+            You don&apos;t have permission to send. Ask the owner.
           </div>
         ) : (
           <SendTestForm onAfterSend={fetchStatus} />
@@ -386,7 +386,7 @@ export function WhatsappLiveDashboard({ actorRole }: { actorRole: string }) {
                 <>
                   Check <code className="bg-muted px-1 rounded">WHATSAPP_LIVE_ENABLED=true</code> in{' '}
                   <code className="bg-muted px-1 rounded">.env.local</code>, then restart the dev server.
-                  The Live mode banner at the top of this page must say "ENABLED" (green).
+                  The Live mode banner at the top of this page must say &quot;ENABLED&quot; (green).
                 </>
               }
             />
@@ -415,8 +415,8 @@ export function WhatsappLiveDashboard({ actorRole }: { actorRole: string }) {
               symptom="Meta returns recipient_not_in_allowed_list"
               fix={
                 <>
-                  Add the recipient's phone number under <strong>Step 1. Try it out → To → Add phone number</strong>{' '}
-                  in your Meta app. They'll receive a verification code on WhatsApp.
+                  Add the recipient&apos;s phone number under <strong>Step 1. Try it out → To → Add phone number</strong>{' '}
+                  in your Meta app. They&apos;ll receive a verification code on WhatsApp.
                 </>
               }
             />
@@ -634,7 +634,7 @@ function SendTestForm({ onAfterSend }: { onAfterSend: () => void }) {
       </div>
       <p className="text-xs text-muted-foreground">
         Tip: send to YOUR OWN WhatsApp number first. Meta blocks sending to numbers
-        that haven't messaged you yet, unless you use a pre-approved template.
+        that haven&apos;t messaged you yet, unless you use a pre-approved template.
       </p>
     </div>
   );

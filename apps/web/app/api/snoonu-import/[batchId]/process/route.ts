@@ -24,6 +24,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import type { Json } from '@malikas/db';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import { extractSnoonuProduct, type ExtractedProduct } from '@/lib/snoonu/extractor';
@@ -182,7 +183,7 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: Route
           variants,
           variant_count: variants.length,
           category_inference: cat,
-        },
+        } as unknown as Json,
       }).eq('id', item.id);
 
       succeeded++;

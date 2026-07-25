@@ -169,7 +169,7 @@ function filenameFromUrl(url: string | null): string | null {
   try {
     const parts = new URL(url).pathname.split('/');
     const last = parts[parts.length - 1] || null;
-    return last && last.length > 0 ? last.split('?')[0] : null;
+    return last && last.length > 0 ? last.split('?')[0]! : null;
   } catch {
     return null;
   }
@@ -351,7 +351,7 @@ export function extractProductData(snap: SnoonuBrowserSnapshot): ExtractedProduc
         available: b.available ?? null,
       };
     })
-    .filter((b): b is SnoonuBranch => b !== null);
+    .filter((b): b is NonNullable<typeof b> => b !== null);
 
   // ─── Pricing ──────────────────────────────────────────────────────────
   // Prefer explicit price_field; otherwise derive from branches (most common
@@ -362,7 +362,7 @@ export function extractProductData(snap: SnoonuBrowserSnapshot): ExtractedProduc
     const branchPrices = branches.map((b) => b.price).filter((p): p is number => p != null);
     if (branchPrices.length > 0) {
       const unique = Array.from(new Set(branchPrices));
-      price = unique.length === 1 ? unique[0] : Math.max(...branchPrices);
+      price = unique.length === 1 ? unique[0]! : Math.max(...branchPrices);
       if (unique.length > 1) notes.push(`price_varies_across_branches:${unique.join(',')}`);
     }
   }

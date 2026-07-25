@@ -12,7 +12,7 @@
  *   - Verifies `location.href` matches a product detail/edit URL before
  *     reading anything. If not, returns { ok: false, reason: 'not_on_product_detail_page' }.
  *   - Scopes ALL tab queries to the inner product-form tablist. Never touches
- *     the outer Catalog tabs (Overview / Drafts & Approvals / Choice Groups).
+ *     the outer Catalog tabs (the top-level portal navigation).
  *   - After every tab click, re-checks the URL. If we navigated away, stops
  *     and reports `navigated_away_after_<x>_tab_click`.
  *   - Never clicks Save, Submit, Publish, Update Stock, Update Status, or
@@ -93,10 +93,10 @@ export const SNOONU_EXTRACTOR_JS = String.raw`(async () => {
   const snoonu_id = location.href.match(/\/product\/(?:edit|view|detail)\/([a-f0-9]+)/i)?.[1] ?? null;
 
   // [FIX 2] Scope tab queries to the INNER product-form tablist only.
-  // The catalog page has its OWN [role=tablist] (Overview / Drafts & Approvals /
-  // Choice Groups). If we run document.querySelectorAll('[role=tab]') globally,
-  // we get BOTH sets and may click the wrong one — which is exactly the bug
-  // that surfaced during the first batch-50 run.
+  // The catalog page has its OWN outer [role=tablist] (the top-level portal
+  // navigation). A global, unscoped tab query would match those outer tabs
+  // too, and we may click the wrong one — which is exactly the bug that
+  // surfaced during the first batch-50 run.
   //
   // Strategy: find the tablist whose tabs include "General Details" — that's
   // unambiguously the inner product form tablist.

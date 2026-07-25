@@ -117,7 +117,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     .eq('audit_status', 'pending');
 
   const prunedIds: number[] = [];
-  for (const row of (pendingRows ?? []) as Array<{
+  for (const row of (pendingRows ?? []) as unknown as Array<{
     id: number;
     product_id: number;
     audit_reason: string | null;
@@ -148,7 +148,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
         .from('snoonu_browser_audits')
         .update({
           audit_status: 'skipped',
-          notes: 'Resolved by Fast Sync (xlsx + catalog section scrape).',
+          audit_notes: 'Resolved by Fast Sync (xlsx + catalog section scrape).',
         })
         .in('id', prunedIds.slice(i, i + CHUNK));
     }
@@ -215,7 +215,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     .order('id', { ascending: true })
     .limit(20);
 
-  const sample_queue = ((sample ?? []) as Array<{
+  const sample_queue = ((sample ?? []) as unknown as Array<{
     id: number;
     audit_priority: number;
     audit_reason: string | null;

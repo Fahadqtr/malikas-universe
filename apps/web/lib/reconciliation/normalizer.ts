@@ -517,7 +517,7 @@ export function normalizeRows(
     };
   }
 
-  const headers = Object.keys(rows[0]);
+  const headers = Object.keys(rows[0]!);
   const detected = opts.platform_hint
     ? { platform: opts.platform_hint, score: 1.0 }
     : detectPlatform(headers);

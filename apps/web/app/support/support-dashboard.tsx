@@ -147,7 +147,7 @@ export function SupportDashboard({
   // Auto-select first conversation if nothing selected
   useEffect(() => {
     if (selectedId == null && conversations.length > 0) {
-      setSelectedId(conversations[0].id);
+      setSelectedId(conversations[0]!.id);
     }
   }, [conversations, selectedId]);
 

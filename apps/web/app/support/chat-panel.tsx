@@ -76,7 +76,7 @@ export function ChatPanel({
   // ─── Empty state ──────────────────────────────────────────────────────────
   if (!detail || !conversationRow) {
     return (
-      <Card className="flex items-center justify-center text-sm text-muted-foreground" style={{ minHeight: 600 }}>
+      <Card className="flex items-center justify-center text-sm text-muted-foreground">
         Select a conversation from the left to start.
       </Card>
     );
@@ -132,7 +132,7 @@ export function ChatPanel({
   const timeline = mergeTimeline(detail.messages, detail.notes);
 
   return (
-    <Card className="!p-0 flex flex-col overflow-hidden" style={{ minHeight: 600 }}>
+    <Card className="!p-0 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="border-b border-border p-3 bg-muted/30">
         <div className="flex items-center justify-between">

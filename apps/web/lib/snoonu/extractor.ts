@@ -100,7 +100,7 @@ async function politeFetch(url: string): Promise<
 function extractTagContent(html: string, tag: string): string | null {
   const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i');
   const m = re.exec(html);
-  return m ? m[1].trim() : null;
+  return m ? m[1]!.trim() : null;
 }
 
 function extractAllMatches(html: string, openTag: string, closeTag: string): string[] {
@@ -108,7 +108,7 @@ function extractAllMatches(html: string, openTag: string, closeTag: string): str
   const out: string[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null) {
-    out.push(m[1]);
+    out.push(m[1]!);
   }
   return out;
 }
@@ -119,14 +119,14 @@ function extractMeta(html: string, key: 'property' | 'name', value: string): str
     'i',
   );
   const m = re.exec(html);
-  if (m) return decodeHtmlEntities(m[1].trim());
+  if (m) return decodeHtmlEntities(m[1]!.trim());
   // Try reversed attribute order
   const re2 = new RegExp(
     `<meta[^>]*content=["']([^"']+)["'][^>]*${key}=["']${value}["']`,
     'i',
   );
   const m2 = re2.exec(html);
-  return m2 ? decodeHtmlEntities(m2[1].trim()) : null;
+  return m2 ? decodeHtmlEntities(m2[1]!.trim()) : null;
 }
 
 function decodeHtmlEntities(s: string): string {
@@ -190,7 +190,7 @@ function extractFromJsonLd(html: string): Partial<ExtractedProduct> | null {
   const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null) {
-    const parsed = safeJson<Record<string, unknown> | Array<Record<string, unknown>>>(m[1]);
+    const parsed = safeJson<Record<string, unknown> | Array<Record<string, unknown>>>(m[1]!);
     if (!parsed) continue;
     const candidates = Array.isArray(parsed) ? parsed : [parsed];
     // Also handle @graph wrapper
@@ -259,7 +259,7 @@ function extractFromNextData(html: string): Partial<ExtractedProduct> | null {
   const re = /<script[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i;
   const m = re.exec(html);
   if (!m) return null;
-  const parsed = safeJson<Record<string, unknown>>(m[1]);
+  const parsed = safeJson<Record<string, unknown>>(m[1]!);
   if (!parsed) return null;
 
   // Snoonu's product page typically nests it under props.pageProps.product
@@ -370,7 +370,7 @@ function extractFromOG(html: string): Partial<ExtractedProduct> {
 
   // Price from common patterns
   const priceMatch = /["'](?:price|original_price)["']\s*:\s*([0-9.]+)/i.exec(html);
-  if (priceMatch) out.price = parseFloat(priceMatch[1]);
+  if (priceMatch) out.price = parseFloat(priceMatch[1]!);
 
   return out;
 }
@@ -454,7 +454,7 @@ export async function extractSnoonuProduct(url: string): Promise<ExtractedProduc
   // Derive source_product_id from URL if missing
   if (!base.source_product_id) {
     const m = /\/products?\/([a-z0-9-]+)/i.exec(url);
-    if (m) base.source_product_id = m[1];
+    if (m) base.source_product_id = m[1]!;
   }
 
   return base;
@@ -471,7 +471,7 @@ export async function extractMany(
   const delayMs = opts.delayMs ?? 1500;
   const results: Array<ExtractedProduct | ExtractFailure> = [];
   for (let i = 0; i < urls.length; i++) {
-    const url = urls[i].trim();
+    const url = urls[i]!.trim();
     if (!url) continue;
     const r = await extractSnoonuProduct(url);
     results.push(r);

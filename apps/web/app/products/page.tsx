@@ -165,7 +165,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
                         <ReadinessBadge score={r.score} ready={r.ready} compact target="shopify" />
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {new Date(p.updated_at).toLocaleDateString()}
+                        {new Date(p.updated_at!).toLocaleDateString()}
                       </td>
                     </tr>
                   );})}

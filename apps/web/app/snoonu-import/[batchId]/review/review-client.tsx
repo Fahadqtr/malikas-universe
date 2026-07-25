@@ -512,7 +512,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function MatchPill({ status, confidence }: { status: string; confidence: number | null }) {
-  const meta = MATCH_PILL[status] ?? MATCH_PILL.pending;
+  const meta = MATCH_PILL[status] ?? MATCH_PILL.pending!;
   return (
     <span className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${TONE_CLS[meta.tone]}`}>
       {meta.label}

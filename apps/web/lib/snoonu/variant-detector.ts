@@ -186,7 +186,7 @@ function parseFromText(text: string): Array<{ value: string; type: VariantType; 
   // "Available in: Red, Pink, Coral"
   const listMatch = text.match(new RegExp(LIST_INTRO_RE.source + '([^.\\n]+)', 'i'));
   if (listMatch) {
-    const list = listMatch[1].split(/\s*[,،/]\s*|\s+and\s+/i);
+    const list = listMatch[1]!.split(/\s*[,،/]\s*|\s+and\s+/i);
     for (const item of list) {
       const v = cleanValue(item);
       if (v && v.length <= 30) {
@@ -199,7 +199,7 @@ function parseFromText(text: string): Array<{ value: string; type: VariantType; 
   const sizeMatch = text.match(SIZE_RE);
   if (sizeMatch) {
     out.push({
-      value: `${sizeMatch[1]}${sizeMatch[2].toLowerCase().replace(/\s+/g, '')}`,
+      value: `${sizeMatch[1]!}${sizeMatch[2]!.toLowerCase().replace(/\s+/g, '')}`,
       type: 'size',
       reason: 'size_in_text',
     });
@@ -234,7 +234,7 @@ function fromTextFields(
   const out: DetectedVariant[] = [];
 
   for (let i = 0; i < parsed.length; i++) {
-    const p = parsed[i];
+    const p = parsed[i]!;
     const code = variantCodeForType(p.type, p.value);
     if (!code) continue;
     const key = `${p.type}:${code}`;
@@ -285,7 +285,7 @@ export function detectVariants(
   if (text.length === 0) return [];
 
   // Mark first as default
-  text[0].is_default = true;
+  text[0]!.is_default = true;
   return dedupe(text);
 }
 

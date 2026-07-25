@@ -23,10 +23,11 @@
  * READ-ONLY against Snoonu. Only writes to local DB.
  */
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
+import type { Json } from '@malikas/db';
 import {
   buildCandidateIndexes,
   matchScrapedProduct,
@@ -266,7 +267,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
           catalog_source: 'catalog_section_page',
           catalog_confidence: 1.0,
           catalog_checked_at: now,
-          snoonu_catalog_source_url: body.sections[0].source_url,
+          snoonu_catalog_source_url: body.sections[0]!.source_url,
         })
         .eq('id', u.id);
       if (existing.primary !== u.primary) primariesSet++;
@@ -282,13 +283,13 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       products_matched: ps.matched,
       products_unmatched: ps.unmatched,
       duplicates_in_section: ps.duplicates,
-      sample_unmatched: ps.sample_unmatched,
+      sample_unmatched: ps.sample_unmatched as Json,
       status: 'completed',
       completed_at: new Date().toISOString(),
     }).eq('id', ps.scrape_id),
   ));
 
-  return new Response(JSON.stringify({
+  return new NextResponse(JSON.stringify({
     ok: true,
     data: {
       total_sections: body.sections.length,
