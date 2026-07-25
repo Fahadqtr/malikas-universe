@@ -21,7 +21,8 @@
 import { NextRequest } from 'next/server';
 import type { Database } from '@malikas/db';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
-import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
+import { createAdminSupabaseClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 export const maxDuration = 180;
@@ -36,14 +37,14 @@ const SNAPSHOT_FIELDS = `
 `;
 
 export const POST = withErrorHandling(async (_req: NextRequest, { params }: RouteContext) => {
+  // Owner-only gate FIRST — before run id parsing, the service-role client, or
+  // any select/update.
+  await requireActor(ROLE_SETS.ownerOnly);
+
   const runId = Number(params.id);
   if (!Number.isInteger(runId) || runId <= 0) {
     return err('BAD_RUN_ID', 'Invalid run id', 400);
   }
-
-  const userClient = createServerSupabaseClient();
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return err('UNAUTHORIZED', 'Login required', 401);
 
   const admin = createAdminSupabaseClient();
 
@@ -71,7 +72,10 @@ export const POST = withErrorHandling(async (_req: NextRequest, { params }: Rout
       .eq('run_id', runId)
       .range(offset, offset + pageSize - 1);
 
-    if (selErr) return err('SELECT_FAILED', selErr.message, 500);
+    if (selErr) {
+      console.error(`[repair-snapshots] select failed for run ${runId}`, selErr);
+      return err('SELECT_FAILED', 'Internal server error', 500);
+    }
     if (!findings || findings.length === 0) break;
 
     for (const raw of findings) {

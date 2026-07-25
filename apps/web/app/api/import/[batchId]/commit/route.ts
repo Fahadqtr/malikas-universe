@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { NextRequest } from 'next/server';
 import type { Database } from '@malikas/db';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 
 const Body = z.object({
@@ -20,6 +21,9 @@ const Body = z.object({
 
 export const POST = withErrorHandling(
   async (req: NextRequest, ctx: { params: { batchId: string } }) => {
+    // Owner-only gate FIRST — before id parsing, body read, admin client, or DB.
+    await requireActor(ROLE_SETS.ownerOnly);
+
     const batchId = parseInt(ctx.params.batchId, 10);
     if (!Number.isFinite(batchId)) return err('BAD_ID', 'Invalid batch id', 400);
 
@@ -33,7 +37,10 @@ export const POST = withErrorHandling(
       .select('*')
       .eq('batch_id', batchId);
 
-    if (rowsErr || !rows) return err('DB_ERROR', rowsErr?.message ?? 'No rows', 500);
+    if (rowsErr || !rows) {
+      console.error(`[commit] load staged rows failed for batch ${batchId}`, rowsErr);
+      return err('DB_ERROR', 'Internal server error', 500);
+    }
 
     const skip = new Set(body.skip_ids ?? []);
     const onlyIncluded = body.row_ids ? new Set(body.row_ids) : null;
@@ -90,7 +97,14 @@ export const POST = withErrorHandling(
         .single();
 
       if (insertErr || !data) {
-        failed.push({ raw_index: row.row_number ?? 0, reason: insertErr?.message ?? 'unknown' });
+        const rawIndex = row.row_number ?? 0;
+        // Log the full error server-side only — never the staged row / product.
+        console.error('[Import Commit] Product insert failed', {
+          batchId,
+          rawIndex,
+          error: insertErr,
+        });
+        failed.push({ raw_index: rawIndex, reason: 'Product insert failed' });
         continue;
       }
 
