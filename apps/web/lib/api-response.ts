@@ -4,6 +4,7 @@
  */
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
+import { ServiceError } from '@/lib/authz/errors';
 
 export type ApiSuccess<T> = {
   ok: true;
@@ -58,15 +59,29 @@ export function withErrorHandling<Args extends unknown[]>(
     try {
       return await handler(...args);
     } catch (e) {
+      // Input validation → 400 with the safe, structured Zod details.
       if (e instanceof ZodError) {
         return err('VALIDATION_ERROR', 'Invalid input', 400, e.flatten());
       }
-      if (e instanceof Error) {
-        console.error('[API Error]', e);
-        return err('INTERNAL_ERROR', e.message, 500);
+
+      // Typed service/authorization errors carry a safe code + status.
+      if (e instanceof ServiceError) {
+        // 5xx ServiceErrors are still server faults: log fully, return generic.
+        if (e.status >= 500) {
+          console.error('[API ServiceError 5xx]', e);
+          return err(e.code || 'INTERNAL_ERROR', 'Internal server error', e.status);
+        }
+        // 4xx (UNAUTHORIZED/FORBIDDEN/NO_PROFILE/INACTIVE/NOT_FOUND/CONFLICT/…):
+        // developer-authored, client-safe message. Forward `details` only for
+        // 400 (client input) and only when present — never for auth failures.
+        const safeDetails = e.status === 400 ? e.details : undefined;
+        return err(e.code, e.message, e.status, safeDetails);
       }
-      console.error('[API Error] Unknown error', e);
-      return err('INTERNAL_ERROR', 'Unknown error', 500);
+
+      // Any other Error (incl. raw Supabase/Postgres errors): never leak the
+      // message, SQL, or stack to the client. Log server-side; return generic.
+      console.error('[API Error]', e);
+      return err('INTERNAL_ERROR', 'Internal server error', 500);
     }
   };
 }
