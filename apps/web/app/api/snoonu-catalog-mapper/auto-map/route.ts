@@ -15,7 +15,8 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
-import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
+import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import {
   extractFromSnoonuExportRow,
   inferFromProductSignals,
@@ -31,11 +32,10 @@ const Schema = z.object({
 });
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
-  const body = Schema.parse(await req.json());
+  // Owner-only gate FIRST — before body parse, admin client, or any DB work.
+  await requireActor(ROLE_SETS.ownerOnly);
 
-  const userClient = createServerSupabaseClient();
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return err('UNAUTHORIZED', 'Login required', 401);
+  const body = Schema.parse(await req.json());
 
   const admin = createAdminSupabaseClient();
 
@@ -51,7 +51,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   if (body.only_missing ?? true) q = q.is('snoonu_category', null);
 
   const { data: rows, error: selErr } = await q;
-  if (selErr) return err('SELECT_FAILED', selErr.message, 500);
+  if (selErr) {
+    console.error(`[auto-map] select failed (import_id=${body.import_id})`, selErr);
+    return err('SELECT_FAILED', 'Internal server error', 500);
+  }
   if (!rows || rows.length === 0) {
     return ok({ scanned: 0, mapped: 0, still_missing: 0 });
   }

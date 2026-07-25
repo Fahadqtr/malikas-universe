@@ -24,6 +24,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import { inferCategory, type InferrerHit, type SnoonuSection } from '@/lib/reconciliation/snoonu-category-inferrer';
 
@@ -37,6 +38,9 @@ const Body = z.object({ dry_run: z.boolean().default(false) });
 // it semantically matches the heuristic-derived classification.
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
+  // Owner-only gate FIRST — before body parse, admin client, or any DB work.
+  await requireActor(ROLE_SETS.ownerOnly);
+
   const body = Body.parse(await req.json().catch(() => ({})));
   const admin = createAdminSupabaseClient();
 
@@ -56,7 +60,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       .is('snoonu_category', null)
       .order('id', { ascending: true })
       .range(offset, offset + 999);
-    if (error) return err('LOAD_FAILED', error.message, 500);
+    if (error) {
+      console.error(`[infer-categories] load candidates failed (offset=${offset})`, error);
+      return err('LOAD_FAILED', 'Internal server error', 500);
+    }
     const chunk = (data ?? []) as typeof candidates;
     if (chunk.length === 0) break;
     candidates.push(...chunk);

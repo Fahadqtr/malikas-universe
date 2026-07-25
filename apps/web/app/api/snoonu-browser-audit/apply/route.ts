@@ -20,7 +20,8 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
-import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
+import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import type { Database } from '@malikas/db';
 
 export const runtime = 'nodejs';
@@ -44,11 +45,10 @@ const Schema = z.object({
 });
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
-  const body = Schema.parse(await req.json());
+  // Owner-only gate FIRST — before body parse, admin client, or any DB work.
+  const actor = await requireActor(ROLE_SETS.ownerOnly);
 
-  const userClient = createServerSupabaseClient();
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return err('UNAUTHORIZED', 'Login required', 401);
+  const body = Schema.parse(await req.json());
 
   const admin = createAdminSupabaseClient();
 
@@ -167,7 +167,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       .from('platform_products')
       .update(sanitized as Database['public']['Tables']['platform_products']['Update'])
       .eq('id', a.product_id);
-    if (updErr) return err('PRODUCT_UPDATE_FAILED', updErr.message, 500);
+    if (updErr) {
+      console.error(`[browser-audit/apply] product update failed (audit_id=${a.id}, product_id=${a.product_id})`, updErr);
+      return err('PRODUCT_UPDATE_FAILED', 'Internal server error', 500);
+    }
   }
 
   // Update the audit row
@@ -179,14 +182,17 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   };
   if (body.mark_verified) {
     auditUpdate.verified_at = new Date().toISOString();
-    auditUpdate.verified_by = user.id;
+    auditUpdate.verified_by = actor.id ?? null;
   }
 
   const { error: auditUpdErr } = await admin
     .from('snoonu_browser_audits')
     .update(auditUpdate as Database['public']['Tables']['snoonu_browser_audits']['Update'])
     .eq('id', a.id);
-  if (auditUpdErr) return err('AUDIT_UPDATE_FAILED', auditUpdErr.message, 500);
+  if (auditUpdErr) {
+    console.error(`[browser-audit/apply] audit update failed (audit_id=${a.id})`, auditUpdErr);
+    return err('AUDIT_UPDATE_FAILED', 'Internal server error', 500);
+  }
 
   return ok({
     audit_id: a.id,
