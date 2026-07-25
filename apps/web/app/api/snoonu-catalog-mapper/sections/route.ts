@@ -13,6 +13,7 @@
 
 import { NextRequest } from 'next/server';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
@@ -35,6 +36,9 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
 });
 
 export const DELETE = withErrorHandling(async (req: NextRequest) => {
+  // Owner-only gate FIRST — before reading searchParams, admin client, or delete.
+  await requireActor(ROLE_SETS.ownerOnly);
+
   const url = new URL(req.url);
   const id = Number(url.searchParams.get('id'));
   if (!Number.isInteger(id) || id <= 0) {
@@ -42,6 +46,9 @@ export const DELETE = withErrorHandling(async (req: NextRequest) => {
   }
   const admin = createAdminSupabaseClient();
   const { error } = await admin.from('snoonu_catalog_sections').delete().eq('id', id);
-  if (error) return err('DELETE_FAILED', error.message, 500);
+  if (error) {
+    console.error(`[catalog-mapper/sections] delete failed (id=${id})`, error);
+    return err('DELETE_FAILED', 'Internal server error', 500);
+  }
   return ok({ deleted: id });
 });
