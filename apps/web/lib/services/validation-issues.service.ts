@@ -4,7 +4,10 @@
  * Reads + resolves issues raised by Validation Engine.
  * Used by /issues admin page.
  */
+import type { Database } from '@malikas/db';
 import { BaseService, ServiceError } from './base.service';
+
+type ValidationIssueUpdate = Database['public']['Tables']['validation_issues']['Update'];
 
 export class ValidationIssuesService extends BaseService {
   async listOpen(opts?: { severity?: 'critical' | 'high' | 'medium' | 'low'; limit?: number }) {
@@ -26,7 +29,7 @@ export class ValidationIssuesService extends BaseService {
 
   async resolve(id: number, note?: string) {
     this.requireRole(['owner', 'editor']);
-    const update: Record<string, unknown> = {
+    const update: ValidationIssueUpdate = {
       status: 'resolved',
       resolved_by: this.actorTag(),
       resolved_at: new Date().toISOString(),
@@ -39,7 +42,7 @@ export class ValidationIssuesService extends BaseService {
 
   async wontFix(id: number, note?: string) {
     this.requireRole(['owner', 'editor']);
-    const update: Record<string, unknown> = {
+    const update: ValidationIssueUpdate = {
       status: 'wont_fix',
       resolved_by: this.actorTag(),
       resolved_at: new Date().toISOString(),

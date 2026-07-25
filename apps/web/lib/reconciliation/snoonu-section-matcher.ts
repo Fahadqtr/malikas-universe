@@ -82,35 +82,35 @@ export function parseSnoonuCatalogPage(rawText: string): ParsedSection[] {
   }
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i]!;
 
     // Pattern: "Name (N)" or "Name (N products)"
     const parenMatch = line.match(/^(.+?)\s*\((\d+)(?:\s*(?:products?|items?))?\)\s*$/i);
-    if (parenMatch && looksLikeSectionName(parenMatch[1])) {
-      add(parenMatch[1].trim(), parseInt(parenMatch[2], 10), line);
+    if (parenMatch && looksLikeSectionName(parenMatch[1]!)) {
+      add(parenMatch[1]!.trim(), parseInt(parenMatch[2]!, 10), line);
       continue;
     }
 
     // Pattern: "Name • N" or "Name | N" or "Name · N"
     const bulletMatch = line.match(/^(.+?)\s*[•|·]\s*(\d+)\s*(?:products?|items?)?\s*$/i);
-    if (bulletMatch && looksLikeSectionName(bulletMatch[1])) {
-      add(bulletMatch[1].trim(), parseInt(bulletMatch[2], 10), line);
+    if (bulletMatch && looksLikeSectionName(bulletMatch[1]!)) {
+      add(bulletMatch[1]!.trim(), parseInt(bulletMatch[2]!, 10), line);
       continue;
     }
 
     // Pattern: "Name N products" (inline)
     const inlineMatch = line.match(/^(.+?)\s+(\d+)\s+(?:products?|items?)\s*$/i);
-    if (inlineMatch && looksLikeSectionName(inlineMatch[1])) {
-      add(inlineMatch[1].trim(), parseInt(inlineMatch[2], 10), line);
+    if (inlineMatch && looksLikeSectionName(inlineMatch[1]!)) {
+      add(inlineMatch[1]!.trim(), parseInt(inlineMatch[2]!, 10), line);
       continue;
     }
 
     // Pattern: Name on its own line + "N products" on next line
     if (looksLikeSectionName(line) && i + 1 < lines.length) {
-      const next = lines[i + 1];
+      const next = lines[i + 1]!;
       const nextCount = next.match(/^(\d+)\s*(?:products?|items?)\s*$/i);
       if (nextCount) {
-        add(line, parseInt(nextCount[1], 10), `${line} | ${next}`);
+        add(line, parseInt(nextCount[1]!, 10), `${line} | ${next}`);
         i++; // consume the count line
         continue;
       }

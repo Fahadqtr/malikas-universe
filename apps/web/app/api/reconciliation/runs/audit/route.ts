@@ -60,7 +60,7 @@ export const GET = withErrorHandling(async () => {
         .eq('run_id', r.id)
         .limit(1000);
 
-      const fs = (findings ?? []) as Array<{
+      const fs = (findings ?? []) as unknown as Array<{
         id: number;
         baseline_product_id: number | null;
         target_product_id: number | null;

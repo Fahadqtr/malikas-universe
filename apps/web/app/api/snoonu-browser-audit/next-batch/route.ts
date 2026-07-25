@@ -64,7 +64,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     .eq('import_id', body.import_id)
     .eq('audit_status', 'pending');
 
-  const batch = ((data ?? []) as Array<{
+  const batch = ((data ?? []) as unknown as Array<{
     id: number;
     product_id: number;
     audit_priority: number;

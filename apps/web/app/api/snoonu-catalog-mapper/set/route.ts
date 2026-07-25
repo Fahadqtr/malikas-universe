@@ -93,7 +93,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       snoonu_collection: body.mapping.snoonu_collection ?? null,
       snoonu_menu_path:
         body.mapping.snoonu_menu_path ??
-        [
+        ([
           body.mapping.snoonu_catalog,
           body.mapping.snoonu_category,
           body.mapping.snoonu_subcategory,
@@ -101,7 +101,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
           body.mapping.snoonu_collection,
         ]
           .filter((v): v is string => !!v && v.trim().length > 0)
-          .join(' > ') || null,
+          .join(' > ') || null),
       snoonu_catalog_source_url: body.mapping.snoonu_catalog_source_url ?? null,
       catalog_source: body.mapping.catalog_source ?? 'manual_paste',
       catalog_confidence: body.mapping.catalog_confidence ?? null,

@@ -28,6 +28,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
+import type { Json } from '@malikas/db';
 import {
   compareSnoonuVsTarget,
   type Finding,
@@ -282,7 +283,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     severity: f.severity,
     baseline_value: f.baseline_value,
     target_value: f.target_value,
-    diff_meta: f.diff_meta,
+    diff_meta: f.diff_meta as Json,
     suggested_action: f.suggested_action,
     resolution_status: 'pending' as const,
     confidence: f.confidence ?? null,

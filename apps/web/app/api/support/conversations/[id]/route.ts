@@ -12,6 +12,7 @@
  */
 import { z } from 'zod';
 import { NextRequest } from 'next/server';
+import type { Database, Json } from '@malikas/db';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { getActor } from '@/lib/actor';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
@@ -130,7 +131,10 @@ export const PATCH = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
 
   // Apply primary update (if any)
   if (Object.keys(update).length > 0) {
-    const { error: updErr } = await admin.from('conversations').update(update).eq('id', id);
+    const { error: updErr } = await admin
+      .from('conversations')
+      .update(update as Database['public']['Tables']['conversations']['Update'])
+      .eq('id', id);
     if (updErr) return err('UPDATE_FAILED', updErr.message, 500);
   }
 
@@ -225,7 +229,7 @@ export const PATCH = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
         kind: n.kind,
         author_email: actor.email,
         author_name: actor.email,
-        metadata: n.metadata,
+        metadata: n.metadata as unknown as Json,
       })),
     );
   }

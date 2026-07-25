@@ -139,7 +139,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       groups.set(k, arr);
     }
     for (const [k, list] of groups) {
-      const [section, rule, confStr] = k.split('|');
+      const [section, rule, confStr] = k.split('|') as [string, string, string];
       const source = ruleToSource[rule];
       const conf = Number(confStr);
       const CHUNK = 200;
@@ -168,13 +168,16 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     sun_specific: { count: 0, samples: [] },
   };
   for (const a of actions) {
-    byRule[a.rule].count++;
-    if (byRule[a.rule].samples.length < 8) {
-      byRule[a.rule].samples.push({
-        name: a.name_en?.slice(0, 70) ?? null,
-        from: a.oldSection,
-        to: a.newSection,
-      });
+    const entry = byRule[a.rule];
+    if (entry) {
+      entry.count++;
+      if (entry.samples.length < 8) {
+        entry.samples.push({
+          name: a.name_en?.slice(0, 70) ?? null,
+          from: a.oldSection,
+          to: a.newSection,
+        });
+      }
     }
   }
 

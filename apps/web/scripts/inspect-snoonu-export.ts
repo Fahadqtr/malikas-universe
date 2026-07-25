@@ -53,14 +53,14 @@ function main() {
 
   const wb = XLSX.readFile(resolve(path));
   for (const name of wb.SheetNames) {
-    const ws = wb.Sheets[name];
+    const ws = wb.Sheets[name]!;
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
       defval: null,
       raw: true,
     });
     console.log(`── Sheet: ${name} ── rows=${rows.length}`);
     if (rows.length === 0) continue;
-    const headers = Object.keys(rows[0]);
+    const headers = Object.keys(rows[0]!);
     console.log(`  columns=${headers.length}\n`);
 
     console.log('  HEADERS (with classification):');
@@ -70,7 +70,7 @@ function main() {
     });
 
     console.log('\n  SAMPLE ROW 1 (non-empty fields):');
-    const r1 = rows[0];
+    const r1 = rows[0]!;
     for (const h of headers) {
       const v = r1[h];
       if (v !== null && v !== undefined && String(v).trim() !== '') {

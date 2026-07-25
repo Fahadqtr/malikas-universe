@@ -38,6 +38,7 @@ import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { getActor } from '@/lib/actor';
 import { callClaudeJson, estimateCostUsd, MODELS } from '@/lib/claude';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
+import type { Json } from '@malikas/db';
 import {
   MALIKA_SYSTEM_PROMPT,
   MALIKA_AR_FALLBACK_PROMPT,
@@ -220,7 +221,7 @@ async function resolveOrCreateBrand(
 function generateBrandCode(name: string): string {
   const words = name.toUpperCase().replace(/[^A-Z0-9 ]/g, '').split(/\s+/).filter(Boolean);
   if (words.length === 0) return 'XXX';
-  if (words.length === 1) return words[0].slice(0, 3).padEnd(3, 'X');
+  if (words.length === 1) return words[0]!.slice(0, 3).padEnd(3, 'X');
   return words.map((w) => w[0]).join('').slice(0, 3).padEnd(3, 'X');
 }
 
@@ -246,12 +247,12 @@ async function saveToSafetyNet(args: {
       original_filename: args.original_filename,
       suggestion: args.suggestion,
       confidence: args.confidence,
-      ai_meta: args.ai_meta,
+      ai_meta: args.ai_meta as Json,
       status: 'pending_recovery',
       error_code: args.error_code,
       error_message: args.error_message,
       failing_table: args.failing_table,
-      failing_payload: args.failing_payload,
+      failing_payload: args.failing_payload as Json,
       created_by: args.actor_email,
     })
     .select('id')
@@ -717,7 +718,7 @@ function extractColumnFromMessage(msg: string): string | null {
   ];
   for (const p of patterns) {
     const m = msg.match(p);
-    if (m) return m[1];
+    if (m) return m[1]!;
   }
   return null;
 }

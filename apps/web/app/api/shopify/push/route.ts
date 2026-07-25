@@ -178,7 +178,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   // ── 5. Upload images (primary + any extras from product_images) ──────────
   const imageUrls: string[] = [];
   if (product.image_url) imageUrls.push(product.image_url);
-  const extra = (product.images as Array<{ cdn_url: string; is_primary: boolean }> | undefined) ?? [];
+  const extra = (product.images as unknown as Array<{ cdn_url: string; is_primary: boolean }> | undefined) ?? [];
   for (const img of extra) {
     if (img.cdn_url && img.cdn_url !== product.image_url) imageUrls.push(img.cdn_url);
   }

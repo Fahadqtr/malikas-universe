@@ -45,7 +45,7 @@ export const GET = withErrorHandling(async (_req: NextRequest, { params }: Route
   if (error) return err('QUERY_FAILED', error.message, 500);
   if (!data) return err('NOT_FOUND', `Finding ${findingId} not found`, 404);
 
-  const f = data as Record<string, unknown> & {
+  const f = data as unknown as Record<string, unknown> & {
     baseline_snapshot: Record<string, unknown> | null;
     target_snapshot: Record<string, unknown> | null;
     baseline: Record<string, unknown> | null;

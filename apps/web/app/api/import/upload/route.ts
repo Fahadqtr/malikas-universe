@@ -8,6 +8,7 @@
 import { NextRequest } from 'next/server';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
+import type { Json } from '@malikas/db';
 import {
   detectPlatform,
   parseFile,
@@ -145,7 +146,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   const stagedRowInserts = preview.staged.map((s) => ({
     batch_id: batch.id,
     row_number: s.raw_index,
-    raw_data: s as unknown as Record<string, unknown>,
+    raw_data: s as unknown as Json,
     error_type: s.decision,
     error_message: s.decision_reason,
   }));

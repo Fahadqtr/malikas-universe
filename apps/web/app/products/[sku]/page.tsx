@@ -75,7 +75,14 @@ export default async function EditProductPage({ params }: { params: { sku: strin
           <div className="space-y-6">
             <Card>
               <h2 className="text-lg font-medium mb-3">Images</h2>
-              <ImageUploader masterSku={product.master_sku} initialImages={imagesRes.data ?? []} />
+              <ImageUploader
+                masterSku={product.master_sku}
+                initialImages={(imagesRes.data ?? []).map((row) => ({
+                  ...row,
+                  is_primary: row.is_primary ?? false,
+                  uploaded_at: row.uploaded_at ?? '',
+                }))}
+              />
             </Card>
 
             <Card>

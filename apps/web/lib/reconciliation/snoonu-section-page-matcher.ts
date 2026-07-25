@@ -178,5 +178,5 @@ export function reconcileSections(
     };
   }
   const [first, ...rest] = unique;
-  return { primary: first, secondary: rest };
+  return { primary: first ?? null, secondary: rest };
 }

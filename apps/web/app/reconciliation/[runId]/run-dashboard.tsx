@@ -231,7 +231,7 @@ export default function RunDashboard({
   // When the user picks a tab that maps to a specific set of types, drive the
   // server-side filter via the strongest type. For multi-type tabs we fetch
   // wide and filter client-side below.
-  const tabGroup = useMemo(() => TAB_GROUPS.find((g) => g.id === activeTab) ?? TAB_GROUPS[0], [activeTab]);
+  const tabGroup = useMemo(() => TAB_GROUPS.find((g) => g.id === activeTab) ?? TAB_GROUPS[0]!, [activeTab]);
 
   // Fetch findings whenever filters change
   useEffect(() => {
@@ -241,7 +241,7 @@ export default function RunDashboard({
       limit: String(limit),
     });
     if (type) params.set('type', type);
-    else if (tabGroup.types.length === 1) params.set('type', tabGroup.types[0]);
+    else if (tabGroup.types.length === 1) params.set('type', tabGroup.types[0]!);
     if (platform) params.set('platform', platform);
     if (severity) params.set('severity', severity);
     if (resolution) params.set('resolution', resolution);
@@ -434,7 +434,7 @@ export default function RunDashboard({
               }`}
             >
               {tab.label}
-              {tabCounts[tab.id] > 0 && <span className="opacity-75 ml-1">{tabCounts[tab.id]}</span>}
+              {(tabCounts[tab.id] ?? 0) > 0 && <span className="opacity-75 ml-1">{tabCounts[tab.id]}</span>}
             </button>
           ))}
         </div>

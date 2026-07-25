@@ -122,7 +122,7 @@ export async function nextSequenceForPrefix(skuPrefix: string): Promise<number> 
   for (const sku of allSkus) {
     const m = re.exec(sku);
     if (m) {
-      const n = parseInt(m[1], 10);
+      const n = parseInt(m[1]!, 10);
       if (n > maxSeq) maxSeq = n;
     }
   }
@@ -175,7 +175,7 @@ export function variantCodeForType(type: string, value: string): string {
     case 'shade':
       // "Shade 01" → "01",  "01" → "01"
       const numMatch = /(\d+[A-Z]?)/i.exec(v);
-      return numMatch ? numMatch[1].toUpperCase() : normalizeSkuSegment(v);
+      return numMatch ? numMatch[1]!.toUpperCase() : normalizeSkuSegment(v);
     case 'size':
       // "50ml" → "50ML",  "100 g" → "100G"
       return v
@@ -239,5 +239,5 @@ export function isValidMalikaSku(sku: string): boolean {
 export function parentOfVariantSku(sku: string): string | null {
   // MK-MAKEUP-0001-RED  →  MK-MAKEUP-0001
   const m = /^(MK-[A-Z]+-\d{4})(?:-[A-Z0-9-]+)$/.exec(sku);
-  return m ? m[1] : null;
+  return m ? m[1]! : null;
 }

@@ -216,7 +216,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     .order('audit_priority', { ascending: true })
     .order('id', { ascending: true })
     .limit(20);
-  const sample_queue = ((sample ?? []) as Array<{
+  const sample_queue = ((sample ?? []) as unknown as Array<{
     id: number; audit_priority: number; audit_reason: string | null; snoonu_spi: string | null;
     product: { id: number; name_en: string | null; name_ar: string | null; snoonu_category: string | null; catalog_confidence: number | null; price: number | null } | null;
   }>).map((r) => ({

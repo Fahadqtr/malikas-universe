@@ -48,7 +48,13 @@ export default async function RunPage({ params }: Params) {
           </p>
         </header>
 
-        <RunDashboard runId={runId} initialRun={run} />
+        <RunDashboard
+          runId={runId}
+          initialRun={{
+            ...run,
+            findings_by_type: (run.findings_by_type ?? {}) as Record<string, number>,
+          }}
+        />
       </div>
     </main>
   );

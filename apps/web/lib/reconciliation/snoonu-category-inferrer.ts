@@ -310,7 +310,7 @@ export function inferCategory(input: InferrerInput): InferrerHit | null {
   const tied = [...scores.entries()].filter(([, v]) => v.sum === best!.sum);
   if (tied.length > 1) {
     tied.sort((a, b) => SPECIFICITY_RANK[a[0]] - SPECIFICITY_RANK[b[0]]);
-    best = { section: tied[0][0], sum: tied[0][1].sum, rules: tied[0][1].rules };
+    best = { section: tied[0]![0], sum: tied[0]![1].sum, rules: tied[0]![1].rules };
     confidence = Math.max(...best.rules.map((r) => r.conf));
     if (best.rules.length > 1) confidence = Math.min(1.0, confidence + 0.05);
   }
@@ -331,6 +331,6 @@ export function inferCategory(input: InferrerInput): InferrerHit | null {
     signals: best.rules.map((r) => r.label),
     rationale: best.rules.length > 1
       ? `${best.rules.length} rules agree on ${best.section}`
-      : `Matched ${best.rules[0].label}`,
+      : `Matched ${best.rules[0]!.label}`,
   };
 }

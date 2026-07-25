@@ -52,7 +52,7 @@ export function ConversationsList({
   setSearch: (v: string) => void;
 }) {
   return (
-    <Card className="!p-0 flex flex-col overflow-hidden" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+    <Card className="!p-0 flex flex-col overflow-hidden">
       {/* Filter bar */}
       <div className="border-b border-border p-2 space-y-2 bg-muted/30">
         <Input

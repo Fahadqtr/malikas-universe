@@ -40,13 +40,16 @@ export async function callClaudeJson<T>(opts: {
   const client = getClient();
   const model = MODELS[opts.model ?? 'haiku'];
 
-  const content: Anthropic.ContentBlockParam[] = [];
+  const content: Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam> = [];
   if (opts.image) {
     if (opts.image.type === 'url') {
+      // The @anthropic-ai/sdk@0.27.x ImageBlockParam type only models base64
+      // sources, but the API accepts URL sources. Bridge the version gap via an
+      // `unknown` cast (not `any`) — the runtime payload shape is correct.
       content.push({
         type: 'image',
         source: { type: 'url', url: opts.image.url },
-      } as Anthropic.ImageBlockParam);
+      } as unknown as Anthropic.ImageBlockParam);
     } else {
       content.push({
         type: 'image',

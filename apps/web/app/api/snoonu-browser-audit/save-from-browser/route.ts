@@ -34,6 +34,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
+import type { Database } from '@malikas/db';
 import {
   extractProductData,
   snapshotIsUsable,
@@ -217,7 +218,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     if (extracted.snoonu_product_name) ppUpdate.name_en = extracted.snoonu_product_name;
     if (extracted.snoonu_name_ar) ppUpdate.name_ar = extracted.snoonu_name_ar;
 
-    await admin.from('platform_products').update(ppUpdate).eq('id', p.id);
+    await admin.from('platform_products').update(ppUpdate as Database['public']['Tables']['platform_products']['Update']).eq('id', p.id);
 
     await admin
       .from('snoonu_browser_audits')

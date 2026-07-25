@@ -21,6 +21,7 @@
  */
 
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
+import type { Json } from '@malikas/db';
 import { callClaudeAgent, estimateCostUsd, MODELS } from '@/lib/claude';
 import { MALIKA_WHATSAPP_SYSTEM_PROMPT } from './prompts';
 import { AGENT_TOOLS, createAgentExecutor } from './tools';
@@ -103,7 +104,7 @@ export async function runWhatsappAgent(args: {
     direction: 'outbound',
     body: run.reply,
     ai_model: run.model,
-    tools_called: run.tool_calls.map((t) => ({ name: t.name, input: t.input })),
+    tools_called: run.tool_calls.map((t) => ({ name: t.name, input: t.input })) as Json,
   });
 
   // ── 6. Update conversation aggregates + escalation flag ──────────────────
@@ -196,7 +197,7 @@ async function upsertConversation(
   if (existing) {
     return {
       id: existing.id,
-      status: existing.status,
+      status: existing.status ?? 'open',
       total_messages: existing.total_messages ?? 0,
       escalated: existing.escalated ?? false,
     };
@@ -218,7 +219,7 @@ async function upsertConversation(
   }
   return {
     id: created.id,
-    status: created.status,
+    status: created.status ?? 'open',
     total_messages: created.total_messages ?? 0,
     escalated: created.escalated ?? false,
   };

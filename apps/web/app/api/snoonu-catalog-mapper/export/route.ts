@@ -5,7 +5,7 @@
  * mapping. Used as the audit report you can hand to the operations team.
  */
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 
@@ -85,7 +85,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   }
 
   const csv = lines.join('\n');
-  return new Response(csv, {
+  return new NextResponse(csv, {
     status: 200,
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',

@@ -71,7 +71,7 @@ export function checkProduct(
   const row = buildRow(template, product);
 
   for (let i = 0; i < template.columns.length; i++) {
-    const col = template.columns[i];
+    const col = template.columns[i]!;
     if (!col.required) continue;
 
     const v = row[i];

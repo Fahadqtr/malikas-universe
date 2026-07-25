@@ -101,6 +101,7 @@ export type Severity = 'low' | 'medium' | 'high' | 'critical';
 // SuggestedAction is now a re-export from the single source of truth.
 // See lib/reconciliation/suggested-actions.ts for the full canonical list
 // and the runtime assertion helpers.
+import type { SuggestedAction } from './suggested-actions';
 export type { SuggestedAction } from './suggested-actions';
 
 export type ProductSnapshot = {
@@ -414,7 +415,7 @@ export function compareSnoonuVsTarget(input: CompareInput): CompareResult {
       findings.push(complete({
         master_sku: b.matched_master_sku,
         baseline_product_id: b.id,
-        target_product_id: targets[0].id,
+        target_product_id: targets[0]!.id,
         target_platform: input.target_platform,
         finding_type: 'duplicate_on_target',
         severity: 'medium',
@@ -427,7 +428,7 @@ export function compareSnoonuVsTarget(input: CompareInput): CompareResult {
         suggested_action: 'review_manually',
       }));
     }
-    const t = targets[0];
+    const t = targets[0]!;
     if (isPairIgnored(b, t)) {
       suppressed++;
       pairedBaselineIds.add(b.id);

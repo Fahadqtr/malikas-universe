@@ -19,6 +19,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import type { Database } from '@malikas/db';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
 
@@ -75,7 +76,7 @@ export const POST = withErrorHandling(async (_req: NextRequest, { params }: Rout
 
     for (const raw of findings) {
       scanned++;
-      const f = raw as {
+      const f = raw as unknown as {
         id: number;
         finding_type: string;
         baseline_product_id: number | null;
@@ -127,7 +128,7 @@ export const POST = withErrorHandling(async (_req: NextRequest, { params }: Rout
       if (didBaseline || didTarget) {
         const { error: updErr } = await admin
           .from('reconciliation_findings')
-          .update(update)
+          .update(update as Database['public']['Tables']['reconciliation_findings']['Update'])
           .eq('id', f.id);
         if (!updErr) {
           if (didBaseline && didTarget) bothRepaired++;

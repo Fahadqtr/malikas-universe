@@ -25,6 +25,7 @@
 import { NextRequest } from 'next/server';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
+import type { Json } from '@malikas/db';
 import { parseFile } from '@malikas/shared';
 import {
   normalizeRows,
@@ -219,7 +220,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       match_status: match ? 'exact' : 'pending',
       match_confidence: match?.confidence ?? null,
       match_signals: match?.signals ?? [],
-      raw_payload: n.raw,
+      raw_payload: n.raw as Json,
     };
   });
 

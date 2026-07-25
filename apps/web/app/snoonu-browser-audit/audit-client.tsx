@@ -360,7 +360,7 @@ export default function AuditClient({ imports }: { imports: ImportItem[] }) {
             <option value="">All reasons</option>
             {Object.keys(byReason).map((r) => (
               <option key={r} value={r}>
-                {REASON_LABEL[r] ?? r} ({byReason[r].pending}/{byReason[r].total})
+                {REASON_LABEL[r] ?? r} ({byReason[r]!.pending}/{byReason[r]!.total})
               </option>
             ))}
           </select>

@@ -21,6 +21,7 @@
  *   }
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { ok, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import { ALLOWED_SUGGESTED_ACTIONS } from '@/lib/reconciliation/suggested-actions';
@@ -104,7 +105,10 @@ export const GET = withErrorHandling(async () => {
   // Pull every column the system knows about across the relevant tables in
   // a single round-trip.
   const tables = Array.from(new Set(EXPECTED.map((e) => e.table)));
-  const { data: cols } = await admin
+  // information_schema tables are not part of the generated Database types, so
+  // query them through an untyped client view (repo pattern, see realtime.ts).
+  const rawAdmin = admin as unknown as SupabaseClient;
+  const { data: cols } = await rawAdmin
     .from('information_schema.columns')
     .select('table_name, column_name')
     .eq('table_schema', 'public')
@@ -165,8 +169,8 @@ export const GET = withErrorHandling(async () => {
   let actionsCheckMissing: string[] = [];
   let actionsCheckDefinition: string | null = null;
   try {
-    const { data: ck } = await admin
-      .from('information_schema.check_constraints' as 'information_schema.check_constraints')
+    const { data: ck } = await rawAdmin
+      .from('information_schema.check_constraints')
       .select('check_clause')
       .eq('constraint_name', 'reconciliation_findings_suggested_action_check')
       .maybeSingle();

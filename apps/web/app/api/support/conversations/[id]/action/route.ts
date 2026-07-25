@@ -13,6 +13,7 @@
  */
 import { z } from 'zod';
 import { NextRequest } from 'next/server';
+import type { Database } from '@malikas/db';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { getActor } from '@/lib/actor';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
@@ -115,7 +116,10 @@ export const POST = withErrorHandling(async (req: NextRequest, ctx: Ctx) => {
   if (cfg.applies.ai_enabled !== undefined) updates.ai_enabled = cfg.applies.ai_enabled;
 
   if (Object.keys(updates).length > 0) {
-    await admin.from('conversations').update(updates).eq('id', id);
+    await admin
+      .from('conversations')
+      .update(updates as Database['public']['Tables']['conversations']['Update'])
+      .eq('id', id);
   }
 
   if (cfg.applies.tag) {

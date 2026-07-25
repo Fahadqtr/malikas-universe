@@ -79,7 +79,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   // that were inserted before migration 0014 fully took effect.
   let healed = 0;
   const projected = (data ?? []).map((row) => {
-    const f = row as Record<string, unknown> & {
+    const f = row as unknown as Record<string, unknown> & {
       baseline_snapshot: ProductSnapshot | null;
       target_snapshot: ProductSnapshot | null;
       baseline: JoinedRow | null;

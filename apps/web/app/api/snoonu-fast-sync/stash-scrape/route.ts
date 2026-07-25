@@ -12,9 +12,10 @@
  * READ-ONLY against Snoonu. Local-DB write only.
  */
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
+import type { Json } from '@malikas/db';
 
 export const runtime = 'nodejs';
 
@@ -47,12 +48,12 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       pages_scanned: 1,
       products_found: obj.sections.reduce((a, s) => a + (s.products?.length ?? 0), 0),
       status: 'running',
-      raw_payload: parsed,
+      raw_payload: parsed as Json,
     })
     .select('id')
     .single();
   if (error) return err('STASH_FAILED', error.message, 500);
-  return new Response(JSON.stringify({ ok: true, data: { stash_id: data?.id, sections: obj.sections.length } }), {
+  return new NextResponse(JSON.stringify({ ok: true, data: { stash_id: data?.id, sections: obj.sections.length } }), {
     status: 200,
     headers: { 'Content-Type': 'application/json', ...CORS },
   });
