@@ -24,7 +24,7 @@ describe('suggested_action drift guard', () => {
     const re = /suggested_action\s*:\s*['"]([a-z_]+)['"]/g;
     const found = new Set<string>();
     let m: RegExpExecArray | null;
-    while ((m = re.exec(src))) found.add(m[1]);
+    while ((m = re.exec(src))) found.add(m[1]!);
 
     const missing = [...found].filter((v) => !(ALLOWED_SUGGESTED_ACTIONS as readonly string[]).includes(v));
     expect(missing).toEqual([]);
