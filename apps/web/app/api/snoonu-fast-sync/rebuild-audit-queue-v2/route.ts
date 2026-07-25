@@ -26,6 +26,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
@@ -52,6 +53,9 @@ async function countByStatus(admin: ReturnType<typeof createAdminSupabaseClient>
 }
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
+  // Owner-only gate FIRST — before body parse, admin client, or any DB work.
+  await requireActor(ROLE_SETS.ownerOnly);
+
   Body.parse(await req.json().catch(() => ({})));
   const admin = createAdminSupabaseClient();
 
@@ -95,8 +99,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
         .from('snoonu_browser_audits')
         .update({ audit_status: 'skipped', audit_notes: 'Replaced by v2 rebuild (Fast Sync row–based queue).' }, { count: 'exact' })
         .in('id', slice);
-      if (error) archiveErrors.push(error.message.slice(0, 120));
-      else archived += count ?? slice.length;
+      if (error) {
+        console.error('[rebuild-audit-queue-v2] archive update failed', error);
+        archiveErrors.push('Queue rebuild failed');
+      } else archived += count ?? slice.length;
     }
   }
 
@@ -120,7 +126,11 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       .not('snoonu_spi', 'is', null)
       .order('id', { ascending: true })
       .range(offset, offset + 999);
-    if (error) { freshErrors.push(error.message.slice(0, 120)); break; }
+    if (error) {
+      console.error(`[rebuild-audit-queue-v2] fresh rows load failed (offset=${offset})`, error);
+      freshErrors.push('Queue rebuild failed');
+      break;
+    }
     const chunk = (data ?? []) as typeof rows;
     if (chunk.length === 0) break;
     rows.push(...chunk);
@@ -199,8 +209,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     for (let i = 0; i < toInsert.length; i += CHUNK) {
       const slice = toInsert.slice(i, i + CHUNK);
       const { error: insErr } = await admin.from('snoonu_browser_audits').insert(slice);
-      if (insErr) insertErrors.push(insErr.message.slice(0, 120));
-      else inserted += slice.length;
+      if (insErr) {
+        console.error('[rebuild-audit-queue-v2] audit insert failed', insErr);
+        insertErrors.push('Queue rebuild failed');
+      } else inserted += slice.length;
     }
   }
 

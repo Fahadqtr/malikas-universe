@@ -26,6 +26,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import type { Json } from '@malikas/db';
 import {
@@ -63,6 +64,9 @@ const Schema = z.object({
 });
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
+  // Owner-only gate FIRST — before body parse, admin client, or any DB work.
+  await requireActor(ROLE_SETS.ownerOnly);
+
   const body = Schema.parse(await req.json());
   const admin = createAdminSupabaseClient();
 
@@ -76,7 +80,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     .eq('platform', 'snoonu')
     .not('snoonu_spi', 'is', null)
     .limit(5000);
-  if (candErr) return err('LOAD_FAILED', candErr.message, 500);
+  if (candErr) {
+    console.error('[apply-catalog-sections-batch] load candidates failed', candErr);
+    return err('LOAD_FAILED', 'Internal server error', 500);
+  }
   const candList = (candidates ?? []) as CandidateProduct[];
   const indexes = buildCandidateIndexes(candList);
 
@@ -120,7 +127,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       .select('id')
       .single();
     if (scrapeErr || !scrapeRow) {
-      return err('SCRAPE_INSERT_FAILED', scrapeErr?.message ?? 'no row', 500);
+      console.error(`[apply-catalog-sections-batch] scrape insert failed (section=${sec.section_name})`, scrapeErr);
+      return err('SCRAPE_INSERT_FAILED', 'Internal server error', 500);
     }
     const scrapeId = scrapeRow.id;
 
@@ -241,7 +249,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       const { error: lErr } = await admin
         .from('snoonu_section_product_links')
         .insert(linkInserts.slice(i, i + CHUNK));
-      if (lErr) return err('LINK_INSERT_FAILED', lErr.message, 500);
+      if (lErr) {
+        console.error('[apply-catalog-sections-batch] link insert failed', lErr);
+        return err('LINK_INSERT_FAILED', 'Internal server error', 500);
+      }
     }
   }
 

@@ -26,6 +26,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
@@ -50,6 +51,9 @@ const HAIR_RELOC_FROM: ReadonlyArray<string> = ['Masks', 'Beauty Bundle', 'Beaut
 const SUN_RELOC_FROM: ReadonlyArray<string> = ['Face Care', 'Beauty Bundle'];
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
+  // Owner-only gate FIRST — before body parse, admin client, or any DB work.
+  await requireActor(ROLE_SETS.ownerOnly);
+
   const body = Body.parse(await req.json().catch(() => ({})));
   const admin = createAdminSupabaseClient();
 
@@ -63,7 +67,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       .not('snoonu_category', 'is', null)
       .order('id', { ascending: true })
       .range(offset, offset + 999);
-    if (error) return err('LOAD_FAILED', error.message, 500);
+    if (error) {
+      console.error(`[quick-pass-fixes] load rows failed (offset=${offset})`, error);
+      return err('LOAD_FAILED', 'Internal server error', 500);
+    }
     const chunk = (data ?? []) as Row[];
     if (chunk.length === 0) break;
     rows.push(...chunk);
@@ -155,8 +162,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
             catalog_checked_at: now,
           })
           .in('id', slice.map((x) => x.id));
-        if (error) writeErrors.push(error.message.slice(0, 120));
-        else writes += slice.length;
+        if (error) {
+          console.error(`[quick-pass-fixes] update failed (section=${section}, rule=${rule})`, error);
+          writeErrors.push('Update failed');
+        } else writes += slice.length;
       }
     }
   }

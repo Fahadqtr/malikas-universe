@@ -40,6 +40,7 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
@@ -78,6 +79,9 @@ async function countByStatus(
 }
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
+  // Owner-only gate FIRST — before body parse, admin client, RPC, or any DB work.
+  await requireActor(ROLE_SETS.ownerOnly);
+
   const body = Body.parse(await req.json().catch(() => ({})));
   const admin = createAdminSupabaseClient();
 
