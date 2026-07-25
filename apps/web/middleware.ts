@@ -2,30 +2,40 @@
  * Next.js middleware.
  * - Refreshes Supabase auth cookies
  * - Redirects unauthenticated users to /login
- * - Adds security headers
+ *
+ * Auth policy (which paths are public, and whether the local dev bypass may
+ * run) lives in `@/lib/middleware-auth` as pure, unit-tested helpers. The
+ * middleware FAILS CLOSED: anything not explicitly public requires a session,
+ * and the `SKIP_AUTH` bypass only runs in genuine local development.
  */
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
-
-const PUBLIC_PATHS = [
-  '/login',
-  '/auth/callback',
-  '/api/health',
-  '/api/whatsapp/webhook', // webhook signed via HMAC, not session
-];
+import { isUnprotectedPath, isAuthBypassAllowed } from '@/lib/middleware-auth';
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
   const pathname = req.nextUrl.pathname;
 
-  // Public paths skip auth check
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+  // Next internals, the explicit public routes, and allowlisted public assets
+  // skip auth. Everything else (incl. dotted paths like /admin/report.csv) is
+  // protected.
+  if (isUnprotectedPath(pathname)) {
     return res;
   }
 
-  // Skip static assets
-  if (pathname.startsWith('/_next') || pathname.includes('.')) {
+  // Local-only dev bypass — evaluated BEFORE creating a Supabase client or
+  // making any network call. Fails closed in staging/production.
+  if (isAuthBypassAllowed(process.env)) {
     return res;
+  }
+
+  // SKIP_AUTH requested but NOT permitted here (e.g. staging/production, or
+  // APP_ENV missing): ignore it and enforce normal auth. Generic warning only —
+  // never log cookies, tokens, or user data.
+  if (process.env.SKIP_AUTH === 'true') {
+    console.warn(
+      '[middleware] SKIP_AUTH is set but ignored outside local development; enforcing normal authentication',
+    );
   }
 
   const supabase = createServerClient(
@@ -47,11 +57,6 @@ export async function middleware(req: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  // Allow dev bypass
-  if (process.env.SKIP_AUTH === 'true') {
-    return res;
-  }
 
   if (!user) {
     const loginUrl = req.nextUrl.clone();
