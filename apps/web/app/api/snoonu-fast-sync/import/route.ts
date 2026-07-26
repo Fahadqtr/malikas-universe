@@ -31,6 +31,7 @@
 
 import { NextRequest } from 'next/server';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import type { Json } from '@malikas/db';
 import {
@@ -137,6 +138,9 @@ function rowChanged(existing: ExistingRow, row: SnoonuExportRow): boolean {
 // ─── Route handler ─────────────────────────────────────────────────────────
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
+  // Owner-only gate FIRST — before formData/file read, parse, admin client, or DB.
+  await requireActor(ROLE_SETS.ownerOnly);
+
   const form = await req.formData().catch(() => null);
   if (!form) return err('BAD_REQUEST', 'Expected multipart/form-data with file field', 400);
 
@@ -152,7 +156,8 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   try {
     parsed = parseSnoonuExportBuffer(buf, source_filename);
   } catch (e) {
-    return err('PARSE_FAILED', (e as Error).message, 400);
+    console.error('[fast-sync/import] xlsx parse failed', e);
+    return err('PARSE_FAILED', 'Invalid or unreadable file', 400);
   }
 
   const admin = createAdminSupabaseClient();
@@ -173,7 +178,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     })
     .select('id')
     .single();
-  if (importErr || !importRow) return err('IMPORT_INSERT_FAILED', importErr?.message ?? 'no row', 500);
+  if (importErr || !importRow) {
+    console.error('[fast-sync/import] platform_imports insert failed', importErr);
+    return err('IMPORT_INSERT_FAILED', 'Import failed', 500);
+  }
 
   const { data: runRow, error: runErr } = await admin
     .from('snoonu_fast_sync_runs')
@@ -185,7 +193,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     })
     .select('id')
     .single();
-  if (runErr || !runRow) return err('RUN_INSERT_FAILED', runErr?.message ?? 'no row', 500);
+  if (runErr || !runRow) {
+    console.error('[fast-sync/import] snoonu_fast_sync_runs insert failed', runErr);
+    return err('RUN_INSERT_FAILED', 'Import failed', 500);
+  }
 
   const importId = importRow.id;
   const runId = runRow.id;
@@ -202,7 +213,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
        snoonu_availability_ali_bin_abdullah, snoonu_availability_al_aziziyah`,
     )
     .eq('platform', 'snoonu');
-  if (exErr) return err('LOAD_EXISTING_FAILED', exErr.message, 500);
+  if (exErr) {
+    console.error('[fast-sync/import] load existing platform_products failed', exErr);
+    return err('LOAD_EXISTING_FAILED', 'Import failed', 500);
+  }
 
   const existingBySpi = new Map<string, ExistingRow>();
   const existingBySourceId = new Map<string, ExistingRow>();
@@ -336,12 +350,14 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     const chunk = insertPayloads.slice(i, i + CHUNK);
     const { error: insErr } = await admin.from('platform_products').insert(chunk);
     if (insErr) {
-      // Stop on first insert error — better to surface than silently swallow
+      // Stop on first insert error. Log the real error server-side only; never
+      // persist or return the raw DB message.
+      console.error('[fast-sync/import] platform_products insert failed', insErr);
       await admin
         .from('snoonu_fast_sync_runs')
-        .update({ status: 'error', error_message: insErr.message, completed_at: new Date().toISOString() })
+        .update({ status: 'error', error_message: 'Product import failed', completed_at: new Date().toISOString() })
         .eq('id', runId);
-      return err('INSERT_FAILED', insErr.message, 500);
+      return err('INSERT_FAILED', 'Product import failed', 500);
     }
   }
 
