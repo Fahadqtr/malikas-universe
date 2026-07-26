@@ -26,6 +26,7 @@
 import { NextRequest } from 'next/server';
 import type { Json } from '@malikas/db';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import { extractSnoonuProduct, type ExtractedProduct } from '@/lib/snoonu/extractor';
 import { inferMasterCategory } from '@/lib/master-categories';
@@ -41,6 +42,9 @@ export const maxDuration = 300; // 5 min
 type RouteContext = { params: { batchId: string } };
 
 export const POST = withErrorHandling(async (req: NextRequest, { params }: RouteContext) => {
+  // Owner-only gate FIRST — before batchId parse, admin client, DB, Storage, or external fetch.
+  await requireActor(ROLE_SETS.ownerOnly);
+
   const batchId = Number(params.batchId);
   if (!Number.isInteger(batchId) || batchId <= 0) {
     return err('BAD_BATCH_ID', 'Invalid batch id', 400);
@@ -88,9 +92,10 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: Route
       // 3a. Extract
       const extracted = await extractSnoonuProduct(item.source_url);
       if (!extracted.ok) {
+        console.error(`[snoonu-import/process] extract failed (item ${item.id})`, extracted.reason);
         await admin.from('snoonu_import_items').update({
           status: 'error',
-          error_message: `extract:${extracted.reason}`,
+          error_message: 'extract_failed',
         }).eq('id', item.id);
         failed++;
         continue;
@@ -189,10 +194,10 @@ export const POST = withErrorHandling(async (req: NextRequest, { params }: Route
       succeeded++;
     } catch (e) {
       failed++;
-      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[snoonu-import/process] processing failed (item ${item.id})`, e);
       await admin
         .from('snoonu_import_items')
-        .update({ status: 'error', error_message: `process:${msg}` })
+        .update({ status: 'error', error_message: 'process_failed' })
         .eq('id', item.id);
     }
   }
