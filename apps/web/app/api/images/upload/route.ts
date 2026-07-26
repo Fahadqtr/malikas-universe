@@ -11,7 +11,7 @@
  */
 import { NextRequest } from 'next/server';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
-import { getActor } from '@/lib/actor';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import { uploadImage } from '@/lib/supabase/storage';
 
@@ -22,10 +22,8 @@ const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
-  const actor = await getActor();
-  if (!['owner', 'editor'].includes(actor.role)) {
-    return err('FORBIDDEN', `Role ${actor.role} cannot upload images`, 403);
-  }
+  // Owner/editor gate FIRST — before formData/file read, admin client, product lookup, Storage, or DB.
+  const actor = await requireActor(ROLE_SETS.writers);
 
   const form = await req.formData();
   const file = form.get('file') as File | null;
@@ -46,7 +44,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     .eq('master_sku', master_sku)
     .is('deleted_at', null)
     .maybeSingle();
-  if (prodErr) return err('DB_ERROR', prodErr.message, 500);
+  if (prodErr) {
+    console.error('[images/upload] product lookup failed', prodErr);
+    return err('DB_ERROR', 'Image upload setup failed', 500);
+  }
   if (!product) return err('NO_PRODUCT', 'Product not found', 404);
 
   // Read file bytes
@@ -59,13 +60,20 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     : file.name.toLowerCase().replace(/[^a-z0-9.]/g, '-');
 
   // Upload to Supabase Storage
-  const { path, url } = await uploadImage({
-    master_sku,
-    filename,
-    content_type: file.type,
-    body: buffer,
-    upsert: true,
-  });
+  let path: string;
+  let url: string;
+  try {
+    ({ path, url } = await uploadImage({
+      master_sku,
+      filename,
+      content_type: file.type,
+      body: buffer,
+      upsert: true,
+    }));
+  } catch (e) {
+    console.error('[images/upload] storage upload failed', e);
+    return err('STORAGE_UPLOAD_FAILED', 'Image upload failed', 500);
+  }
 
   // If primary: clear other primary flags on this product
   if (is_primary) {
@@ -91,11 +99,14 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     .select('*')
     .single();
 
-  if (insertErr) return err('DB_INSERT_FAILED', insertErr.message, 500);
+  if (insertErr) {
+    console.error('[images/upload] product_images insert failed', insertErr);
+    return err('DB_INSERT_FAILED', 'Image upload failed', 500);
+  }
 
   // Update products.image_url if primary
   if (is_primary) {
-    await admin
+    const { error: updateErr } = await admin
       .from('products')
       .update({
         image_url: url,
@@ -103,6 +114,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
         updated_by: actor.email,
       })
       .eq('master_sku', master_sku);
+    if (updateErr) {
+      console.error('[images/upload] products image_url update failed', updateErr);
+      return err('DB_UPDATE_FAILED', 'Image upload failed', 500);
+    }
   }
 
   return ok({ image: imageRow, url, path }, 201);
