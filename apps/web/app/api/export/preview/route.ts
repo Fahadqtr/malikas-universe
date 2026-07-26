@@ -26,7 +26,7 @@
 import { z } from 'zod';
 import { NextRequest } from 'next/server';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
-import { getActor } from '@/lib/actor';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import { validateBatch } from '@/lib/export-validator';
 import type { ExportTarget, SourceProduct } from '@/lib/export-templates';
@@ -47,10 +47,8 @@ const Body = z.object({
 });
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
-  const actor = await getActor();
-  if (!['owner', 'editor', 'viewer'].includes(actor.role)) {
-    return err('FORBIDDEN', `Role ${actor.role} cannot preview exports`, 403);
-  }
+  // Owner/editor gate FIRST — before body parse, admin client, DB, or preview validation.
+  await requireActor(ROLE_SETS.writers);
 
   const body = Body.parse(await req.json());
   const admin = createAdminSupabaseClient();
@@ -83,12 +81,21 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   query = query.order('updated_at', { ascending: false }).limit(2000);
 
   const { data, error } = await query;
-  if (error) return err('LIST_FAILED', error.message, 500);
+  if (error) {
+    console.error('[export/preview] product list query failed', error);
+    return err('LIST_FAILED', 'Export preview setup failed', 500);
+  }
 
   const products = (data ?? []) as unknown as Array<SourceProduct & { product_status: string }>;
 
   // ── Validate ──────────────────────────────────────────────────────────────
-  const outcome = validateBatch(products, body.target as ExportTarget);
+  let outcome: ReturnType<typeof validateBatch>;
+  try {
+    outcome = validateBatch(products, body.target as ExportTarget);
+  } catch (e) {
+    console.error('[export/preview] preview generation failed', e);
+    return err('PREVIEW_FAILED', 'Export preview failed', 500);
+  }
 
   // Build a small sample so UI can show "what will be exported"
   const sample = outcome.eligible.slice(0, 10).map((p) => ({
