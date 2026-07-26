@@ -51,7 +51,6 @@ type HistoryItem = {
   blocked_count: number;
   file_bytes: number;
   filename: string;
-  exported_by: string;
   exported_at: string;
   notes: string | null;
 };
@@ -469,7 +468,7 @@ export function ExportBuilder({
                     {fmtBytes(h.file_bytes)}
                   </div>
                   <div className="text-[11px] text-muted-foreground">
-                    {new Date(h.exported_at).toLocaleString()} · {h.exported_by}
+                    {new Date(h.exported_at).toLocaleString()}
                   </div>
                   {h.notes && (
                     <div className="text-[11px] italic text-muted-foreground/80 truncate" title={h.notes}>
