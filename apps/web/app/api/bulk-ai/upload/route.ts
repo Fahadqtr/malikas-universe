@@ -17,7 +17,7 @@
 import { NextRequest } from 'next/server';
 import crypto from 'node:crypto';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
-import { getActor } from '@/lib/actor';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
 import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import { STORAGE_BUCKET, publicImageUrl } from '@/lib/supabase/storage';
 
@@ -28,10 +28,8 @@ const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
-  const actor = await getActor();
-  if (!['owner', 'editor'].includes(actor.role)) {
-    return err('FORBIDDEN', `Role ${actor.role} cannot upload`, 403);
-  }
+  // Owner/editor gate FIRST — before formData/file read, arrayBuffer, admin client, or Storage.
+  await requireActor(ROLE_SETS.writers);
 
   const form = await req.formData();
   const file = form.get('file') as File | null;
@@ -52,7 +50,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     upsert: false,
     cacheControl: '3600',
   });
-  if (uploadErr) return err('STORAGE_UPLOAD_FAILED', uploadErr.message, 500);
+  if (uploadErr) {
+    console.error('[bulk-ai/upload] temporary image upload failed', uploadErr);
+    return err('STORAGE_UPLOAD_FAILED', 'Image upload failed', 500);
+  }
 
   const url = publicImageUrl(path);
 
