@@ -7,7 +7,8 @@
  */
 import { NextRequest } from 'next/server';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
-import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
+import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import type { Json } from '@malikas/db';
 import {
   detectPlatform,
@@ -20,6 +21,9 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
+  // Owner-only gate FIRST — before formData/file read, parse, admin client, or DB.
+  const actor = await requireActor(ROLE_SETS.ownerOnly);
+
   const formData = await req.formData();
   const file = formData.get('file') as File | null;
   const sourcePlatformHint = (formData.get('source_platform') as string | null) ?? null;
@@ -30,18 +34,19 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   const buffer = new Uint8Array(await file.arrayBuffer());
 
   // Parse
-  const parsed = await parseFile(buffer, { filename: file.name, max_rows: 5000 });
+  let parsed: Awaited<ReturnType<typeof parseFile>>;
+  try {
+    parsed = await parseFile(buffer, { filename: file.name, max_rows: 5000 });
+  } catch (e) {
+    console.error('[import/upload] file parse failed', e);
+    return err('PARSE_FAILED', 'Invalid or unreadable file', 400);
+  }
   if (parsed.rows.length === 0) return err('EMPTY_FILE', 'No rows found', 400);
 
   // Detect platform if not given
   const detected = detectPlatform(parsed.headers);
   const platform = sourcePlatformHint ?? detected?.platform ?? 'import';
   const mapping = detected?.mapping ?? {};
-
-  // Authenticated user
-  const userClient = createServerSupabaseClient();
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return err('UNAUTHORIZED', 'Login required', 401);
 
   // Load lookups via admin client
   const admin = createAdminSupabaseClient();
@@ -54,7 +59,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     admin.from('products').select('barcode').not('barcode', 'is', null),
   ]);
 
-  if (brandsRes.error) return err('DB_ERROR', brandsRes.error.message, 500);
+  if (brandsRes.error) {
+    console.error('[import/upload] lookups load failed', brandsRes.error);
+    return err('DB_ERROR', 'Import setup failed', 500);
+  }
 
   // Build brand lookup
   const brand_lookup = new Map<string, number>();
@@ -135,12 +143,15 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       skipped_rows: 0,
       status: 'validating',
       started_at: new Date().toISOString(),
-      initiated_by: user.email,
+      initiated_by: actor.email,
     })
     .select('id')
     .single();
 
-  if (batchErr || !batch) return err('DB_ERROR', batchErr?.message ?? 'Insert failed', 500);
+  if (batchErr || !batch) {
+    console.error('[import/upload] import_batches insert failed', batchErr);
+    return err('DB_ERROR', 'Import setup failed', 500);
+  }
 
   // Stage rows in import_errors table (re-used for staged review)
   const stagedRowInserts = preview.staged.map((s) => ({
@@ -152,7 +163,11 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   }));
 
   if (stagedRowInserts.length > 0) {
-    await admin.from('import_errors').insert(stagedRowInserts);
+    const { error: stagedErr } = await admin.from('import_errors').insert(stagedRowInserts);
+    if (stagedErr) {
+      console.error('[import/upload] staged rows insert failed', stagedErr);
+      return err('DB_ERROR', 'Import upload failed', 500);
+    }
   }
 
   return ok({ batch_id: batch.id, preview });

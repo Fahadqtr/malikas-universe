@@ -24,7 +24,8 @@
 
 import { NextRequest } from 'next/server';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
-import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
+import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import type { Json } from '@malikas/db';
 import { parseFile } from '@malikas/shared';
 import {
@@ -42,6 +43,9 @@ export const maxDuration = 120;
 const ALLOWED_PLATFORMS: Platform[] = ['snoonu', 'talabat', 'rafeeq', 'shopify', 'internal', 'other'];
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
+  // Owner-only gate FIRST — before formData/file read, parse, admin client, or DB.
+  const actor = await requireActor(ROLE_SETS.ownerOnly);
+
   const form = await req.formData();
   const file = form.get('file') as File | null;
   const platformHintRaw = (form.get('platform') as string | null) ?? null;
@@ -55,13 +59,15 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       ? (platformHintRaw as Platform)
       : null;
 
-  const userClient = createServerSupabaseClient();
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return err('UNAUTHORIZED', 'Login required', 401);
-
   // 1. Parse raw file
   const buffer = new Uint8Array(await file.arrayBuffer());
-  const parsed = await parseFile(buffer, { filename: file.name, max_rows: 10000 });
+  let parsed: Awaited<ReturnType<typeof parseFile>>;
+  try {
+    parsed = await parseFile(buffer, { filename: file.name, max_rows: 10000 });
+  } catch (e) {
+    console.error('[reconciliation/upload] file parse failed', e);
+    return err('PARSE_FAILED', 'Invalid or unreadable file', 400);
+  }
   if (parsed.rows.length === 0) return err('EMPTY_FILE', 'No rows found', 400);
 
   // 2. Normalize to canonical shape
@@ -69,7 +75,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   if (norm.platform === 'other' && !platformHint) {
     return err(
       'PLATFORM_UNKNOWN',
-      `Could not detect platform from headers. Pass ?platform=snoonu/talabat/rafeeq/shopify/internal explicitly. Headers seen: ${parsed.headers.slice(0, 10).join(', ')}`,
+      'Could not detect platform from headers. Pass ?platform=snoonu/talabat/rafeeq/shopify/internal explicitly.',
       400,
     );
   }
@@ -103,13 +109,14 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       detected_headers: norm.detected_headers,
       total_rows: norm.rows.length,
       status: 'normalizing',
-      created_by: user.id,
+      created_by: actor.id ?? null,
     })
     .select('id')
     .single();
 
   if (importErr || !importRow) {
-    return err('IMPORT_INSERT_FAILED', importErr?.message ?? 'unknown', 500);
+    console.error('[reconciliation/upload] platform_imports insert failed', importErr);
+    return err('IMPORT_INSERT_FAILED', 'Reconciliation upload failed', 500);
   }
   const importId = (importRow as { id: number }).id;
 
@@ -230,11 +237,12 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     const chunk = productRows.slice(i, i + 1000);
     const { error: insErr } = await admin.from('platform_products').insert(chunk);
     if (insErr) {
+      console.error('[reconciliation/upload] platform_products insert failed', insErr);
       await admin
         .from('platform_imports')
-        .update({ status: 'error', error_message: insErr.message })
+        .update({ status: 'error', error_message: 'Reconciliation import failed' })
         .eq('id', importId);
-      return err('PRODUCTS_INSERT_FAILED', insErr.message, 500, { inserted_so_far: insertedTotal });
+      return err('PRODUCTS_INSERT_FAILED', 'Reconciliation import failed', 500, { inserted_so_far: insertedTotal });
     }
     insertedTotal += chunk.length;
   }
