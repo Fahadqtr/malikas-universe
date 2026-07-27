@@ -2540,6 +2540,19 @@ export type Database = {
       };
     };
     Functions: {
+      recover_ai_draft: {
+        Args: {
+          p_draft_id: number;
+          p_actor_id: string;
+          p_actor_email: string;
+          p_product_payload: Json;
+        };
+        Returns: {
+          already_recovered: boolean;
+          product_id: number;
+          master_sku: string;
+        }[];
+      };
       generate_internal_barcode: {
         Args: Record<string, never>;
         Returns: string;
