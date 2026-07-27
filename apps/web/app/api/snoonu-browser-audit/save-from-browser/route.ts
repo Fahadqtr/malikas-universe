@@ -33,7 +33,8 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, err, withErrorHandling } from '@/lib/api-response';
-import { createAdminSupabaseClient, createServerSupabaseClient } from '@/lib/supabase/server';
+import { requireActor, ROLE_SETS } from '@/lib/authorization';
+import { createAdminSupabaseClient } from '@/lib/supabase/server';
 import type { Database } from '@malikas/db';
 import {
   extractProductData,
@@ -69,16 +70,15 @@ function nameSimilarity(a: string | null | undefined, b: string | null | undefin
 }
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
+  // Owner-only gate FIRST — before body parse, admin client, DB, or live-catalog writes.
+  const actor = await requireActor(ROLE_SETS.ownerOnly);
+
   const body = Schema.parse(await req.json());
   const snapshot = body.snapshot as SnoonuBrowserSnapshot;
 
   if (!snapshotIsUsable(snapshot)) {
     return err('SNAPSHOT_EMPTY', 'Snapshot has no usable fields', 400);
   }
-
-  const userClient = createServerSupabaseClient();
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return err('UNAUTHORIZED', 'Login required', 401);
 
   const admin = createAdminSupabaseClient();
 
@@ -156,7 +156,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     audit_status: 'audited' as const,
     audit_confidence: finalConfidence,
     audited_at: new Date().toISOString(),
-    audited_by: user.id,
+    audited_by: actor.id ?? null,
     audit_notes: matchReason,
   };
 
@@ -177,7 +177,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       .from('snoonu_browser_audits')
       .update(auditRow)
       .eq('id', eid);
-    if (updErr) return err('AUDIT_UPDATE_FAILED', updErr.message, 500);
+    if (updErr) {
+      console.error('[snoonu-browser-audit/save-from-browser] update failed', updErr);
+      return err('AUDIT_UPDATE_FAILED', 'Browser audit save failed', 500);
+    }
     savedId = eid;
   } else {
     const { data: inserted, error: insErr } = await admin
@@ -185,7 +188,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       .insert(auditRow)
       .select('id')
       .single();
-    if (insErr) return err('AUDIT_INSERT_FAILED', insErr.message, 500);
+    if (insErr) {
+      console.error('[snoonu-browser-audit/save-from-browser] insert failed', insErr);
+      return err('AUDIT_INSERT_FAILED', 'Browser audit save failed', 500);
+    }
     savedId = (inserted as { id: number }).id;
   }
 
@@ -218,18 +224,29 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     if (extracted.snoonu_product_name) ppUpdate.name_en = extracted.snoonu_product_name;
     if (extracted.snoonu_name_ar) ppUpdate.name_ar = extracted.snoonu_name_ar;
 
-    await admin.from('platform_products').update(ppUpdate as Database['public']['Tables']['platform_products']['Update']).eq('id', p.id);
+    const { error: applyError } = await admin
+      .from('platform_products')
+      .update(ppUpdate as Database['public']['Tables']['platform_products']['Update'])
+      .eq('id', p.id);
+    if (applyError) {
+      console.error('[snoonu-browser-audit/save-from-browser] catalog auto-apply failed', applyError);
+      return err('AUDIT_APPLY_FAILED', 'Browser audit apply failed', 500);
+    }
 
-    await admin
+    const { error: verifyError } = await admin
       .from('snoonu_browser_audits')
       .update({
         audit_status: 'verified',
         applied_at: new Date().toISOString(),
         applied_fields: ['catalog', 'price', 'stock', 'status', 'image', 'name', 'branches'],
         verified_at: new Date().toISOString(),
-        verified_by: user.id,
+        verified_by: actor.id ?? null,
       })
       .eq('id', savedId);
+    if (verifyError) {
+      console.error('[snoonu-browser-audit/save-from-browser] audit verification update failed', verifyError);
+      return err('AUDIT_VERIFY_FAILED', 'Browser audit apply failed', 500);
+    }
 
     autoApplied = true;
     auditStatus = 'verified';
