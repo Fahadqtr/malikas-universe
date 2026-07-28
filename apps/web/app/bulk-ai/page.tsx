@@ -38,12 +38,20 @@ export default async function BulkAIPage() {
               tells you which drafts need review. Nothing publishes automatically — every draft waits for you.
             </p>
           </div>
-          <Link
-            href="/bulk-ai/review"
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:opacity-90 whitespace-nowrap"
-          >
-            Review Dashboard →
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/bulk-ai/recover"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-secondary text-secondary-foreground hover:bg-accent whitespace-nowrap"
+            >
+              Recovery Queue →
+            </Link>
+            <Link
+              href="/bulk-ai/review"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:opacity-90 whitespace-nowrap"
+            >
+              Review Dashboard →
+            </Link>
+          </div>
         </header>
 
         <BulkAIUploader />
