@@ -23,12 +23,18 @@
  *
  *   • /login                — the sign-in page
  *   • /auth/callback        — Supabase OAuth/redirect callback
+ *   • /auth/recovery        — prefetch-safe password-reset landing page
  *   • /api/health           — unauthenticated health probe
  *   • /api/whatsapp/webhook — Meta webhook; authenticated via HMAC, not session
+ *
+ * Exact match keeps `/auth/recovery` public while `/auth/recovery/`,
+ * `/auth/recovery/anything`, `/auth/recovery.evil` and `/auth/recover` stay
+ * protected.
  */
 export const PUBLIC_PATHS: readonly string[] = [
   '/login',
   '/auth/callback',
+  '/auth/recovery',
   '/api/health',
   '/api/whatsapp/webhook',
 ];
