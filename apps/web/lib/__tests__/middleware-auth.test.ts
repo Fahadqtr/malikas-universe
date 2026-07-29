@@ -14,8 +14,8 @@ import {
   PUBLIC_ASSET_PATHS,
 } from '../middleware-auth';
 
-describe('isPublicPath — the four exact public routes', () => {
-  it.each(['/login', '/auth/callback', '/api/health', '/api/whatsapp/webhook'])(
+describe('isPublicPath — the five exact public routes', () => {
+  it.each(['/login', '/auth/callback', '/auth/recovery', '/api/health', '/api/whatsapp/webhook'])(
     'treats %s as public',
     (p) => {
       expect(isPublicPath(p)).toBe(true);
@@ -28,6 +28,11 @@ describe('isPublicPath — the four exact public routes', () => {
     '/api/healthcheck',
     '/api/whatsapp/webhook.evil',
     '/loginX',
+    // /auth/recovery lookalikes + nested paths stay protected (exact match only)
+    '/auth/recovery/',
+    '/auth/recovery/anything',
+    '/auth/recovery.evil',
+    '/auth/recover',
     // nested sub-paths of public routes (exact match → protected, fail-closed)
     '/login/',
     '/login/anything',
@@ -74,6 +79,7 @@ describe('isPublicAsset — exact allowlist only', () => {
 describe('isUnprotectedPath — combined gate', () => {
   it('is true for public routes and next internals', () => {
     expect(isUnprotectedPath('/login')).toBe(true);
+    expect(isUnprotectedPath('/auth/recovery')).toBe(true);
     expect(isUnprotectedPath('/api/whatsapp/webhook')).toBe(true);
     expect(isUnprotectedPath('/_next/static/x.js')).toBe(true);
   });
@@ -87,6 +93,10 @@ describe('isUnprotectedPath — combined gate', () => {
   it('is false for nested sub-paths of public routes (exact-match fail-closed)', () => {
     expect(isUnprotectedPath('/login/anything')).toBe(false);
     expect(isUnprotectedPath('/auth/callback/anything')).toBe(false);
+    expect(isUnprotectedPath('/auth/recovery/')).toBe(false);
+    expect(isUnprotectedPath('/auth/recovery/anything')).toBe(false);
+    expect(isUnprotectedPath('/auth/recovery.evil')).toBe(false);
+    expect(isUnprotectedPath('/auth/recover')).toBe(false);
     expect(isUnprotectedPath('/api/health/anything')).toBe(false);
     expect(isUnprotectedPath('/api/whatsapp/webhook/anything')).toBe(false);
   });
